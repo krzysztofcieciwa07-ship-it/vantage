@@ -1,4 +1,28 @@
-# vantage# afe_vantage.py
+                ┌──────────────────┐
+                │ META-ORCHESTRATOR│
+                └────────┬─────────┘
+                         ↓
+                  ┌──────────────┐
+                  │  AGENT SWARM │
+                  └──────┬───────┘
+                         ↓
+                  ┌──────────────┐
+                  │ VANTAGE GATE │
+                  └──────┬───────┘
+                         ↓
+                  ┌──────────────┐
+                  │   SANDBOX    │
+                  └──────┬───────┘
+                         ↓
+                 ┌───────────────┐
+                 │ INCIDENT LAB  │
+                 └───────┬───────┘
+                         ↓
+                 ┌───────────────┐
+                 │ DECISION GATE │
+                 └───────┬───────┘
+                         ↓
+              ALLOW / HUMAN / BLOCK# vantage# afe_vantage.py
 from dataclasses import dataclass, field
 from enum import Enum
 import hashlib
