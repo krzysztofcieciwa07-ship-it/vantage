@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+import base64
+import binascii
 from enum import Enum
 import hashlib
 import re
@@ -70,10 +72,31 @@ class VantageGate:
 
     def detect(self, text: str) -> Detection:
         result = Detection()
-        for name, weight, pattern in SIGNATURES:
-            if re.search(pattern, text, re.IGNORECASE):
-                result.score += weight
-                result.hits.append(name)
+        candidates = [text]
+
+        # Decode one layer of plausible Base64 tokens for inspection only.
+        # Decoded content is never executed or sent anywhere.
+        for token in re.findall(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{16,}={0,2}(?![A-Za-z0-9+/])", text):
+            try:
+                decoded = base64.b64decode(token, validate=True).decode("utf-8")
+            except (binascii.Error, UnicodeDecodeError):
+                continue
+            if decoded and all(ch.isprintable() or ch.isspace() for ch in decoded):
+                candidates.append(decoded)
+                if "encoding" not in result.hits:
+                    result.hits.append("encoding")
+
+        for candidate in candidates:
+            for name, weight, pattern in SIGNATURES:
+                if name == "encoding":
+                    continue
+                if re.search(pattern, candidate, re.IGNORECASE) and name not in result.hits:
+                    result.score += weight
+                    result.hits.append(name)
+
+        if "encoding" in result.hits:
+            result.score += 18
+
         result.score = min(result.score, 100)
         return result
 
