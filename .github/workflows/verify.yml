@@ -96,7 +96,7 @@ jobs:
       - name: Create provenance anchor
         run: |
           mkdir -p provenance
-          python tools/provenance_anchor.py build             --commit "$GITHUB_SHA"             --evidence evidence/vantage-verification.txt             --replay replay/replay-result.json             --output provenance/anchor.json
+          python tools/provenance_anchor.py build --commit "$GITHUB_SHA" --evidence evidence/vantage-verification.txt --replay replay/replay-result.json --output provenance/anchor.json
 
       - name: Verify provenance anchor
         run: python tools/provenance_anchor.py verify --anchor provenance/anchor.json --expected-commit "$GITHUB_SHA"
