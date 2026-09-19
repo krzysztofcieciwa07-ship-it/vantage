@@ -51,6 +51,7 @@ jobs:
           set -euo pipefail
           mkdir -p replay
           python - <<'PY'
+          import hashlib
           import json
           import os
           from pathlib import Path
@@ -59,7 +60,7 @@ jobs:
           result = AFE().run(task)
           payload = {
               "commit": os.environ["GITHUB_SHA"],
-              "task_sha256": __import__("hashlib").sha256(task.text.encode()).hexdigest(),
+              "task_sha256": hashlib.sha256(task.text.encode()).hexdigest(),
               "agent": result.agent,
               "detector_score": result.detector_score,
               "sandbox_stability": result.sandbox_stability,
@@ -69,6 +70,27 @@ jobs:
           Path("replay/replay-result.json").write_text(json.dumps(payload, sort_keys=True) + "\n")
           print("REPLAY: PASS")
           print(json.dumps(payload, sort_keys=True))
+          PY
+
+      - name: Replay determinism gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("replay/replay-result.json").read_text())
+          expected={
+            "agent":"Security Agent",
+            "detector_score":66,
+            "sandbox_stability":98,
+            "incident_score":66,
+            "verdict":"BLOCK",
+          }
+          for k,v in expected.items():
+            if r[k] != v:
+              raise SystemExit(f"REPLAY_DETERMINISM: mismatch {k}: {r[k]!r} != {v!r}")
+          print("REPLAY_DETERMINISM: PASS")
           PY
 
       - name: Upload verification evidence
