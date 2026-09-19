@@ -104,7 +104,7 @@ class VantageGate:
     @staticmethod
     def _normalize_for_detection(text: str) -> str:
         text = unicodedata.normalize("NFKC", text)
-        text = "".join(ch for ch in text if unicodedata.category(ch) != "Cf")
+        text = "".join(" " if unicodedata.category(ch) == "Cf" else ch for ch in text)
         homoglyphs = str.maketrans({
             "і": "i", "І": "I", "ο": "o", "Ο": "O",
             "а": "a", "А": "A", "е": "e", "Е": "E",
