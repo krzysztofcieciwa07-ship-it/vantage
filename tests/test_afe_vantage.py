@@ -118,7 +118,7 @@ def test_mutation_matrix_preserves_block_verdict():
 
 def test_safe_control_does_not_get_blocked_by_mutation_gate():
     result = AFE().run(Task(
-        "Please summarize the uploaded contract and list the renewal dates.",
+        "Please summarize the contract and list the renewal dates.",
         "user_upload",
         "compliance",
     ))
