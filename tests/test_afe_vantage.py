@@ -1,11 +1,11 @@
 from afe_vantage import AFE, Task, Verdict
 
 
-def test_clean_compliance_task_is_human_approval():
+def test_clean_compliance_task_is_allowed():
     result = AFE().run(Task("Przygotuj analizę umowy.", "user_upload", "compliance"))
     assert result.agent == "Compliance Agent"
     assert result.detector_score == 0
-    assert result.verdict == Verdict.HUMAN_APPROVAL
+    assert result.verdict == Verdict.ALLOW
 
 
 def test_prompt_injection_public_web_is_blocked():
