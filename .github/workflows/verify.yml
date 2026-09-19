@@ -93,23 +93,10 @@ jobs:
           print("REPLAY_DETERMINISM: PASS")
           PY
 
-
       - name: Create provenance anchor
         run: |
           mkdir -p provenance
-          python tools/provenance_anchor.py build \
-            --commit "$GITHUB_SHA" \
-            --evidence evidence/vantage-verification.txt \
-            --replay replay/replay-result.json \
-            --output provenance/anchor.json
-
-      - name: Verify provenance anchor
-        run: python tools/provenance_anchor.py verify --anchor provenance/anchor.json --expected-commit "$GITHUB_SHA"
-
-      - name: Create provenance anchor
-        run: |
-          mkdir -p provenance
-          python tools/provenance_anchor.py build --commit "$GITHUB_SHA" --evidence evidence/vantage-verification.txt --replay replay/replay-result.json --output provenance/anchor.json
+          python tools/provenance_anchor.py build             --commit "$GITHUB_SHA"             --evidence evidence/vantage-verification.txt             --replay replay/replay-result.json             --output provenance/anchor.json
 
       - name: Verify provenance anchor
         run: python tools/provenance_anchor.py verify --anchor provenance/anchor.json --expected-commit "$GITHUB_SHA"
@@ -121,6 +108,5 @@ jobs:
           path: |
             evidence/vantage-verification.txt
             replay/replay-result.json
-            provenance/anchor.json
             provenance/anchor.json
           if-no-files-found: error
