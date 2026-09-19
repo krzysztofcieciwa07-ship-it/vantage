@@ -1,0 +1,68 @@
+name: Vantage Independent Provenance Verify
+
+on:
+  workflow_run:
+    workflows: ["Vantage Verify"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  independent-verify:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download evidence artifact from completed run
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          pattern: vantage-verification-*
+          merge-multiple: true
+          path: provenance-bundle
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: "v3.1.3"
+
+      - name: Verify artifact provenance independently
+        env:
+          EXPECTED_IDENTITY: https://github.com/krzysztofcieciwa07-ship-it/vantage/.github/workflows/verify.yml@refs/heads/main
+          EXPECTED_ISSUER: https://token.actions.githubusercontent.com
+          EXPECTED_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          test -f provenance-bundle/provenance/anchor.json
+          test -f provenance-bundle/provenance/anchor.sigstore.json
+          test -f provenance-bundle/evidence/vantage-verification.txt
+          test -f provenance-bundle/replay/replay-result.json
+          grep -qx "commit=$EXPECTED_COMMIT" provenance-bundle/evidence/vantage-verification.txt
+          cosign verify-blob provenance-bundle/provenance/anchor.json \
+            --bundle provenance-bundle/provenance/anchor.sigstore.json \
+            --certificate-identity "$EXPECTED_IDENTITY" \
+            --certificate-oidc-issuer "$EXPECTED_ISSUER"
+
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          anchor=json.loads(Path("provenance-bundle/provenance/anchor.json").read_text())
+          evidence=Path("provenance-bundle/evidence/vantage-verification.txt")
+          replay=Path("provenance-bundle/replay/replay-result.json")
+          assert anchor["commit"] == os.environ["EXPECTED_COMMIT"]
+          assert anchor["evidence_sha256"] == hashlib.sha256(evidence.read_bytes()).hexdigest()
+          assert anchor["replay_sha256"] == hashlib.sha256(replay.read_bytes()).hexdigest()
+          print("INDEPENDENT_PROVENANCE: PASS")
+          print("commit="+anchor["commit"])
+          print("record_hash="+anchor["record_hash"])
+          PY
+
+      - name: Upload independent verification result
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-provenance-${{ github.event.workflow_run.head_sha }}
+          path: provenance-bundle/provenance
+          if-no-files-found: error
