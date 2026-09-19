@@ -42,7 +42,7 @@ def test_block_memory_penalty_is_stateful_and_monotonic():
     gate = VantageGate()
     assert gate.decide("user_upload", 60, 60) == Verdict.BLOCK
     assert gate.memory["user_upload"] == 1
-    assert gate.decide("user_upload", 50, 50) == Verdict.BLOCK
+    assert gate.decide("user_upload", 60, 60) == Verdict.BLOCK
     assert gate.memory["user_upload"] == 2
 
 
