@@ -42,6 +42,9 @@ jobs:
             echo "tests_sha256=$(sha256sum tests/test_afe_vantage.py | cut -d' ' -f1)"
           } | tee evidence/vantage-verification.txt
 
+      - name: Independent evidence verification
+        run: python tools/verify_evidence.py
+
       - name: Upload verification evidence
         uses: actions/upload-artifact@v4
         with:
