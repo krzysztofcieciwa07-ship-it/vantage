@@ -36,6 +36,9 @@ jobs:
       - name: Run full LLM orchestration E2E
         run: python run_e2e.py
 
+      - name: Run full LLM HYBRID orchestration E2E
+        run: python run_hybrid_e2e.py
+
       - name: Run hybrid LLM gate tests
         run: pytest -q tests/test_hybrid_llm.py
 
