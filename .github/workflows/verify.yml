@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   verify:
@@ -93,6 +94,11 @@ jobs:
           print("REPLAY_DETERMINISM: PASS")
           PY
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@main
+        with:
+          cosign-release: "v3.1.3"
+
       - name: Create provenance anchor
         run: |
           mkdir -p provenance
@@ -100,6 +106,32 @@ jobs:
 
       - name: Verify provenance anchor
         run: python tools/provenance_anchor.py verify --anchor provenance/anchor.json --expected-commit "$GITHUB_SHA"
+
+      - name: Keyless sign provenance anchor
+        run: |
+          set -euo pipefail
+          cosign sign-blob provenance/anchor.json --bundle provenance/anchor.sigstore.json --yes
+
+      - name: Independent keyless signature verification
+        env:
+          EXPECTED_IDENTITY: https://github.com/krzysztofcieciwa07-ship-it/vantage/.github/workflows/verify.yml@refs/heads/main
+          EXPECTED_ISSUER: https://token.actions.githubusercontent.com
+        run: |
+          set -euo pipefail
+          cosign verify-blob provenance/anchor.json \
+            --bundle provenance/anchor.sigstore.json \
+            --certificate-identity "$EXPECTED_IDENTITY" \
+            --certificate-oidc-issuer "$EXPECTED_ISSUER"
+          cp provenance/anchor.json /tmp/anchor-mutated.json
+          printf '\\n' >> /tmp/anchor-mutated.json
+          if cosign verify-blob /tmp/anchor-mutated.json \\
+            --bundle provenance/anchor.sigstore.json \\
+            --certificate-identity "$EXPECTED_IDENTITY" \\
+            --certificate-oidc-issuer "$EXPECTED_ISSUER"; then
+            echo "SIGNATURE_MUTATION_GATE: FAIL (mutated anchor verified)"
+            exit 1
+          fi
+          echo "SIGNATURE_MUTATION_GATE: PASS"
 
       - name: Upload verification evidence
         uses: actions/upload-artifact@v4
@@ -109,4 +141,5 @@ jobs:
             evidence/vantage-verification.txt
             replay/replay-result.json
             provenance/anchor.json
+            provenance/anchor.sigstore.json
           if-no-files-found: error
