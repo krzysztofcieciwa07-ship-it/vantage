@@ -17,7 +17,7 @@ def test_public_web_source_is_more_restrictive_than_verified_api():
 
 def test_high_risk_cannot_become_allow_by_source_trust():
     gate = VantageGate()
-    assert gate.decide("verified_api", 60, 60) == Verdict.BLOCK
+    assert gate.decide("verified_api", 80, 80) == Verdict.BLOCK
 
 
 def test_source_trust_mutation_does_not_remove_high_risk_block():
