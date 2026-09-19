@@ -128,10 +128,7 @@ jobs:
             --certificate-oidc-issuer "$EXPECTED_ISSUER"
           cp provenance/anchor.json /tmp/anchor-mutated.json
           printf '\n' >> /tmp/anchor-mutated.json
-          if cosign verify-blob /tmp/anchor-mutated.json \\
-            --bundle provenance/anchor.sigstore.json \\
-            --certificate-identity "$EXPECTED_IDENTITY" \\
-            --certificate-oidc-issuer "$EXPECTED_ISSUER"; then
+          if cosign verify-blob /tmp/anchor-mutated.json --bundle provenance/anchor.sigstore.json --certificate-identity "$EXPECTED_IDENTITY" --certificate-oidc-issuer "$EXPECTED_ISSUER"; then
             echo "SIGNATURE_MUTATION_GATE: FAIL (mutated anchor verified)"
             exit 1
           fi
