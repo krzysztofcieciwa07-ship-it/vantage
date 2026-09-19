@@ -4,6 +4,7 @@ import binascii
 from enum import Enum
 import hashlib
 import re
+import unicodedata
 
 
 class Verdict(str, Enum):
@@ -72,7 +73,7 @@ class VantageGate:
 
     def detect(self, text: str) -> Detection:
         result = Detection()
-        candidates = [text]
+        candidates = [text, self._normalize_for_detection(text)]
 
         # Decode one layer of plausible Base64 tokens for inspection only.
         # Decoded content is never executed or sent anywhere.
@@ -99,6 +100,18 @@ class VantageGate:
 
         result.score = min(result.score, 100)
         return result
+
+    @staticmethod
+    def _normalize_for_detection(text: str) -> str:
+        text = unicodedata.normalize("NFKC", text)
+        text = "".join(ch for ch in text if unicodedata.category(ch) != "Cf")
+        homoglyphs = str.maketrans({
+            "і": "i", "І": "I", "ο": "o", "Ο": "O",
+            "а": "a", "А": "A", "е": "e", "Е": "E",
+            "о": "o", "О": "O", "р": "p", "Р": "P",
+            "с": "c", "С": "C", "х": "x", "Х": "X",
+        })
+        return text.translate(homoglyphs)
 
     def sandbox(self, text: str) -> int:
         """Deterministic stability probe; it does not execute code or I/O."""
