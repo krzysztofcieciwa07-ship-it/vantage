@@ -31,6 +31,9 @@ jobs:
       - name: Run adversarial end-to-end matrix
         run: python tools/adversarial_matrix.py
 
+      - name: Run full LLM orchestration E2E
+        run: python run_e2e.py
+
       - name: Generate evidence
         shell: bash
         run: |
