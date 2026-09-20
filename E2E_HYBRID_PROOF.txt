@@ -1,0 +1,3 @@
+FULL LLM HYBRID E2E PROOF TARGET
+This branch exists solely to trigger pull_request verification.
+Required: gate -> two providers -> agreement/contradiction -> replay -> provenance -> independent verification.

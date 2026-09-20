@@ -129,7 +129,7 @@ jobs:
 
       - name: Independent keyless signature verification
         env:
-          EXPECTED_IDENTITY: https://github.com/krzysztofcieciwa07-ship-it/vantage/.github/workflows/verify.yml@refs/heads/main
+          EXPECTED_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/verify.yml@${{ github.ref }}
           EXPECTED_ISSUER: https://token.actions.githubusercontent.com
         run: |
           set -euo pipefail
