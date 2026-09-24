@@ -12,11 +12,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: {python-version: "3.12"}
+        with:
+          python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: pytest -q
       - run: python -m ci.gen_incident --seed 12345
       - run: python -m ci.evidence_vault verify
       - run: python -m ci.replay
-      - run: touch evidence/manifest.json evidence/probe_results.jsonl evidence/self_report.json && python -m ci.score
+      - run: python -m ci.score
       - run: docker compose config
+      - run: sh scripts/live_forensic.sh
