@@ -11,7 +11,7 @@ for i in $(seq 1 8); do curl -fsS -X POST http://localhost:8098/enqueue -H 'cont
 sleep 1
 docker compose stop worker
 DEDUP=1 CRASH_ONCE=0 docker compose up -d worker
-sleep 2
+for i in $(seq 1 20); do [ -f data/processed.jsonl ] && [ "$(wc -l < data/processed.jsonl)" -ge 8 ] && break; sleep 1; done
 test -s data/events.jsonl
 test -s data/processed.jsonl
 cat data/processed.jsonl
