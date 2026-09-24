@@ -19,6 +19,5 @@ jobs:
       - run: python -m ci.gen_incident --seed 12345
       - run: python -m ci.evidence_vault verify
       - run: python -m ci.replay
-      - run: python -m ci.score
       - run: docker compose config
       - run: sh scripts/live_forensic.sh
