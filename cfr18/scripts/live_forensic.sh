@@ -14,6 +14,7 @@ DEDUP=1 CRASH_ONCE=0 docker compose up -d worker
 sleep 2
 test -s data/events.jsonl
 test -s data/processed.jsonl
+cat data/processed.jsonl
 python3 - <<'PY'
 import json
 from pathlib import Path
