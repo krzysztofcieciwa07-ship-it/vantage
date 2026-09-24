@@ -1,0 +1,10 @@
+services:
+  api:
+    build: ./services/api
+    environment: [QUEUE_FILE=/data/queue.jsonl]
+    volumes: ["./data:/data"]
+    ports: ["8098:8098"]
+  worker:
+    build: ./services/worker
+    environment: [QUEUE_FILE=/data/queue.jsonl]
+    volumes: ["./data:/data"]
