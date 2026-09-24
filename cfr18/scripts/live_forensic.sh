@@ -8,10 +8,21 @@ docker compose up -d --build
 trap 'docker compose down -v --remove-orphans' EXIT
 until curl -fsS http://localhost:8098/health >/dev/null; do sleep 1; done
 for i in $(seq 1 8); do curl -fsS -X POST http://localhost:8098/enqueue -H 'content-type: application/json' -d "{\"id\":$i}" >/dev/null; done
+sleep 1
+docker compose stop worker
+DEDUP=1 CRASH_ONCE=0 docker compose up -d worker
 sleep 2
 test -s data/events.jsonl
 test -s data/processed.jsonl
-python3 -m ci.evidence_vault append runtime --data '{"health":"ok","jobs":8}'
+python3 - <<'PY'
+import json
+from pathlib import Path
+rows=[json.loads(x) for x in Path("data/processed.jsonl").read_text().splitlines()]
+ids=[r["id"] for r in rows]
+assert set(ids)==set(range(1,9)), ids
+assert len(ids)==len(set(ids)), ids
+PY
+python3 -m ci.evidence_vault append runtime --data '{"health":"ok","jobs":8,"recovery":"dedup"}'
 cp evidence/.chain.jsonl evidence/.chain.bak
 python3 - <<'PY'
 from pathlib import Path
