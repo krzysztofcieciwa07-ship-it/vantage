@@ -1,0 +1,6 @@
+{
+  "schema": "CFR-18/evidence-manifest-v1",
+  "runtime": "docker-compose",
+  "external_anchor_required": true,
+  "status": "UNVERIFIED"
+}
