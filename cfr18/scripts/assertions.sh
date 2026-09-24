@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
-test -f evidence/incident.json
-test -f evidence/probe_results.jsonl
-test -f evidence/self_report.json
+test -s data/events.jsonl
+test -s data/processed.jsonl
+test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8098/health)" = "200"
 python3 -m ci.evidence_vault verify
 echo "ASSERTIONS PASS"
