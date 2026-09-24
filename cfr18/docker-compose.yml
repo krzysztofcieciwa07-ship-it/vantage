@@ -1,10 +1,16 @@
 services:
   api:
     build: ./services/api
-    environment: [QUEUE_FILE=/data/queue.jsonl]
+    environment: [QUEUE_FILE=/data/queue.jsonl,EVENTS_FILE=/data/events.jsonl]
     volumes: ["./data:/data"]
     ports: ["8098:8098"]
   worker:
     build: ./services/worker
-    environment: [QUEUE_FILE=/data/queue.jsonl]
+    environment:
+      QUEUE_FILE: /data/queue.jsonl
+      EVENTS_FILE: /data/events.jsonl
+      PROCESSED_FILE: /data/processed.jsonl
+      FAULT_VARIANT: ${FAULT_VARIANT:-double_process}
+      CRASH_AFTER_MS: ${CRASH_AFTER_MS:-250}
+      DEDUP: ${DEDUP:-0}
     volumes: ["./data:/data"]
