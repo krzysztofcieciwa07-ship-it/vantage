@@ -1,23 +1,148 @@
 name: CFR-18
+
 on:
   push:
     branches: [cfr-18-queue-resurrection]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: cfr18
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
-      - run: pytest -q
-      - run: python -m ci.gen_incident --seed 12345
-      - run: python -m ci.evidence_vault verify
-      - run: python -m ci.replay
-      - run: docker compose config
-      - run: sh scripts/live_forensic.sh
+
+      - name: Install test runner
+        run: pip install -r requirements.txt
+
+      - name: Unit tests
+        run: pytest -q
+
+      - name: Generate deterministic incident
+        run: python -m ci.gen_incident --seed 12345
+
+      - name: Verify evidence chain
+        run: python -m ci.evidence_vault verify
+
+      - name: Replay mutation
+        run: python -m ci.replay
+
+      - name: Validate Compose
+        run: docker compose config
+
+      - name: Live forensic scenario
+        run: sh scripts/live_forensic.sh
+
+      - name: Assert runtime evidence
+        run: sh scripts/assertions.sh
+
+      - name: Generate forensic score
+        run: python -m ci.score
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+        with:
+          cosign-release: "v3.1.3"
+
+      - name: Build external evidence anchor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p provenance
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          root = Path(".")
+          files = [
+              Path("evidence/.chain.jsonl"),
+              Path("evidence/incident.json"),
+              Path("evidence/manifest.json"),
+              Path("evidence/probe_results.jsonl"),
+              Path("evidence/self_report.json"),
+              Path("evidence/score_result.json"),
+              Path("data/events.jsonl"),
+              Path("data/processed.jsonl"),
+          ]
+          entries = []
+          for p in files:
+              if not p.exists():
+                  raise SystemExit(f"MISSING_EVIDENCE:{p}")
+              b = p.read_bytes()
+              entries.append({"path": str(p), "sha256": hashlib.sha256(b).hexdigest(), "bytes": len(b)})
+
+          chain_root = None
+          chain = Path("evidence/.chain.jsonl").read_text().splitlines()
+          if chain:
+              chain_root = json.loads(chain[-1])["hash"]
+
+          anchor = {
+              "schema": "CFR-18/external-evidence-anchor-v1",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "commit": os.environ["GITHUB_SHA"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "workflow": os.environ["GITHUB_WORKFLOW"],
+              "ref": os.environ["GITHUB_REF"],
+              "chain_root": chain_root,
+              "files": entries,
+          }
+          Path("provenance/anchor.json").write_text(
+              json.dumps(anchor, indent=2, sort_keys=True) + "\n"
+          )
+          print(json.dumps(anchor, indent=2, sort_keys=True))
+          PY
+          sha256sum provenance/anchor.json | tee provenance/anchor.sha256
+
+      - name: Keyless sign external evidence anchor
+        run: |
+          set -euo pipefail
+          cosign sign-blob provenance/anchor.json             --bundle provenance/anchor.sigstore.json             --yes
+
+      - name: Independently verify signature and mutation rejection
+        env:
+          EXPECTED_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/cfr18.yml@${{ github.ref }}
+          EXPECTED_ISSUER: https://token.actions.githubusercontent.com
+        run: |
+          set -euo pipefail
+          cosign verify-blob provenance/anchor.json             --bundle provenance/anchor.sigstore.json             --certificate-identity "$EXPECTED_IDENTITY"             --certificate-oidc-issuer "$EXPECTED_ISSUER"
+
+          cp provenance/anchor.json /tmp/anchor-mutated.json
+          printf '\n' >> /tmp/anchor-mutated.json
+          if cosign verify-blob /tmp/anchor-mutated.json               --bundle provenance/anchor.sigstore.json               --certificate-identity "$EXPECTED_IDENTITY"               --certificate-oidc-issuer "$EXPECTED_ISSUER"; then
+            echo "SIGNATURE_MUTATION_GATE: FAIL"
+            exit 1
+          fi
+          echo "SIGNATURE_MUTATION_GATE: PASS"
+
+      - name: Upload forensic evidence bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfr18-forensic-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            evidence/.chain.jsonl
+            evidence/incident.json
+            evidence/manifest.json
+            evidence/probe_results.jsonl
+            evidence/self_report.json
+            evidence/score_result.json
+            data/events.jsonl
+            data/processed.jsonl
+            provenance/anchor.json
+            provenance/anchor.sha256
+            provenance/anchor.sigstore.json
+
