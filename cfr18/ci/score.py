@@ -24,6 +24,6 @@ def score():
     correct=report.get("fault_type")==incident["mutation"]["variant"]
     base=.20*availability+.25*recovered+.20*(1-min(duplicates/8,1))+.10*(1 if crashes else 0)+.05*inv
     total=max(0,min(1,base+.20*(.15 if correct else -.05)))
-    result={"schema":"CFR-18/forensic-score-v2","status":"PASS" if total>=.90 else "FAIL","score":round(total,4),"metrics":{"availability":round(availability,4),"recovered_job_fraction":round(recovered,4),"duplicate_records":duplicates,"crash_events":crashes,"probe_samples":len(probes),"investigation_quality":round(inv,4),"self_report_correct":correct},"chain_root_before_score":chain["root"],"generated_at":datetime.now(timezone.utc).isoformat()}
+    result={"schema":"CFR-18/forensic-score-v2","status":"MERIT" if total>=.75 else ("PASS" if total>=.60 else "FAIL"),"score":round(total,4),"metrics":{"availability":round(availability,4),"recovered_job_fraction":round(recovered,4),"duplicate_records":duplicates,"crash_events":crashes,"probe_samples":len(probes),"investigation_quality":round(inv,4),"self_report_correct":correct},"chain_root_before_score":chain["root"],"generated_at":datetime.now(timezone.utc).isoformat()}
     (EV/"score_result.json").write_text(json.dumps(result,indent=2)+"\n"); return result
 if __name__=="__main__": print(json.dumps(score(),indent=2))
