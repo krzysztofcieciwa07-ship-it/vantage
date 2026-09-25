@@ -51,7 +51,7 @@ jobs:
         run: sh scripts/live_forensic.sh
 
       - name: Assert runtime evidence
-        run: sh scripts/assertions.sh
+        run: sh ci/assertions.sh
 
       - name: Generate forensic score
         run: python -m ci.score
