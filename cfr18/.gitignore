@@ -1,0 +1,6 @@
+evidence/.chain.jsonl
+evidence/probe_results.jsonl
+evidence/score_result.json
+evidence/incident.json
+data/*
+!data/.gitkeep
