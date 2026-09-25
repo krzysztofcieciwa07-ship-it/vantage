@@ -137,12 +137,14 @@ jobs:
           name: cfr18-forensic-${{ github.sha }}
           if-no-files-found: error
           retention-days: 90
+          include-hidden-files: true
           path: |
             evidence/.chain.jsonl
             evidence/incident.json
             evidence/manifest.json
             evidence/probe_results.jsonl
             evidence/self_report.json
+            evidence/bash_history.txt
             evidence/score_result.json
             data/events.jsonl
             data/processed.jsonl
