@@ -12,3 +12,6 @@ python3 -m ci.replay
 ```
 
 The local vault is tamper-evident, not immutable. Final forensic verification requires an external CI/signature anchor.
+
+
+Forensic certification binds the signed anchor to the exact PR head SHA and base SHA.
