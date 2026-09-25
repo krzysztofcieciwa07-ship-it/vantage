@@ -63,6 +63,9 @@ jobs:
 
       - name: Build external evidence anchor
         shell: bash
+        env:
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || "" }}
         run: |
           set -euo pipefail
           mkdir -p provenance
