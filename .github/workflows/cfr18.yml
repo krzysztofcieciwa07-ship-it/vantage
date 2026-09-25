@@ -3,6 +3,10 @@ name: CFR-18
 on:
   push:
     branches: [cfr-18-queue-resurrection]
+  pull_request:
+    paths:
+      - 'cfr18/**'
+      - '.github/workflows/cfr18.yml'
   workflow_dispatch:
 
 permissions:
