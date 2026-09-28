@@ -2,7 +2,7 @@ name: CFR-18
 
 on:
   push:
-    branches: [cfr-18-queue-resurrection]
+    branches: [cfr18-forensic]
   pull_request:
     paths:
       - 'cfr18/**'
