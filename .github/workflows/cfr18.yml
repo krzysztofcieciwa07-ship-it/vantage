@@ -1,8 +1,6 @@
 name: CFR-18
 
 on:
-  push:
-    branches: [cfr18-forensic]
   pull_request:
     paths:
       - 'cfr18/**'
