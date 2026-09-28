@@ -66,7 +66,7 @@ jobs:
           } | tee evidence/vantage-verification.txt
 
       - name: Independent evidence verification
-        run: python tools/verify_evidence.py
+        run: python tools/verify_evidence.py --expected-commit "$EXPECTED_COMMIT"
 
       - name: Replay from recorded evidence
         shell: bash
