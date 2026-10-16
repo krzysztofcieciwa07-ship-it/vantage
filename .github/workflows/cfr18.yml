@@ -21,6 +21,14 @@ jobs:
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact PR head SHA
+        env:
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_HEAD_SHA"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -63,7 +71,7 @@ jobs:
         shell: bash
         env:
           SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || "" }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
         run: |
           set -euo pipefail
           mkdir -p provenance
@@ -97,7 +105,9 @@ jobs:
           anchor = {
               "schema": "CFR-18/external-evidence-anchor-v1",
               "repository": os.environ["GITHUB_REPOSITORY"],
-              "commit": os.environ["GITHUB_SHA"],
+              "commit": os.environ["SOURCE_HEAD_SHA"],
+              "base_sha": os.environ["BASE_SHA"],
+              "workflow_run_commit": os.environ["GITHUB_SHA"],
               "run_id": os.environ["GITHUB_RUN_ID"],
               "workflow": os.environ["GITHUB_WORKFLOW"],
               "ref": os.environ["GITHUB_REF"],
