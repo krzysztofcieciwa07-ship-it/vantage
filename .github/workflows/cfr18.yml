@@ -21,6 +21,14 @@ jobs:
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact PR head SHA
+        env:
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_HEAD_SHA"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -63,7 +71,7 @@ jobs:
         shell: bash
         env:
           SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || "" }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
         run: |
           set -euo pipefail
           mkdir -p provenance
@@ -97,7 +105,9 @@ jobs:
           anchor = {
               "schema": "CFR-18/external-evidence-anchor-v1",
               "repository": os.environ["GITHUB_REPOSITORY"],
-              "commit": os.environ["GITHUB_SHA"],
+              "commit": os.environ["SOURCE_HEAD_SHA"],
+              "base_sha": os.environ["BASE_SHA"],
+              "workflow_run_commit": os.environ["GITHUB_SHA"],
               "run_id": os.environ["GITHUB_RUN_ID"],
               "workflow": os.environ["GITHUB_WORKFLOW"],
               "ref": os.environ["GITHUB_REF"],
@@ -135,7 +145,7 @@ jobs:
       - name: Upload forensic evidence bundle
         uses: actions/upload-artifact@v4
         with:
-          name: cfr18-forensic-${{ github.sha }}
+          name: cfr18-forensic-${{ github.event.pull_request.head.sha || github.sha }}
           if-no-files-found: error
           retention-days: 90
           include-hidden-files: true
@@ -152,3 +162,84 @@ jobs:
             cfr18/provenance/anchor.json
             cfr18/provenance/anchor.sha256
             cfr18/provenance/anchor.sigstore.json
+
+  independent-verify:
+    name: independent-evidence-verify
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download recorded evidence on clean runner
+        uses: actions/download-artifact@v4
+        with:
+          name: cfr18-forensic-${{ github.event.pull_request.head.sha || github.sha }}
+          path: evidence_bundle
+
+      - name: Install independent Cosign verifier
+        uses: sigstore/cosign-installer@v3.7.0
+        with:
+          cosign-release: "v2.4.1"
+
+      - name: Verify signature, exact source SHA and evidence file hashes
+        shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EXPECTED_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          EXPECTED_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/cfr18.yml@${{ github.ref }}
+          EXPECTED_ISSUER: https://token.actions.githubusercontent.com
+        run: |
+          set -euo pipefail
+          anchor="$(find evidence_bundle -type f -name anchor.json -print -quit)"
+          test -n "$anchor"
+          bundle="$(dirname "$anchor")/anchor.sigstore.json"
+          test -s "$bundle"
+          cosign verify-blob "$anchor" \
+            --bundle "$bundle" \
+            --certificate-identity "$EXPECTED_IDENTITY" \
+            --certificate-oidc-issuer "$EXPECTED_ISSUER"
+          ANCHOR_PATH="$anchor" python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          anchor_path = Path(os.environ["ANCHOR_PATH"])
+          root = anchor_path.parent.parent
+          anchor = json.loads(anchor_path.read_text())
+          expected = {
+              "schema": "CFR-18/external-evidence-anchor-v1",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "commit": os.environ["EXPECTED_SOURCE_SHA"],
+              "base_sha": os.environ["EXPECTED_BASE_SHA"],
+              "workflow_run_commit": os.environ["GITHUB_SHA"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "ref": os.environ["GITHUB_REF"],
+          }
+          for field, value in expected.items():
+              if str(anchor.get(field)) != str(value):
+                  raise SystemExit(f"INDEPENDENT_SOURCE_BINDING_FAIL:{field}")
+          for entry in anchor["files"]:
+              path = Path(entry["path"])
+              if path.is_absolute() or ".." in path.parts:
+                  raise SystemExit("INDEPENDENT_UNSAFE_EVIDENCE_PATH")
+              data = (root / path).read_bytes()
+              if len(data) != entry["bytes"]:
+                  raise SystemExit(f"INDEPENDENT_EVIDENCE_SIZE_FAIL:{path}")
+              if hashlib.sha256(data).hexdigest() != entry["sha256"]:
+                  raise SystemExit(f"INDEPENDENT_EVIDENCE_HASH_FAIL:{path}")
+          chain = (root / "evidence/.chain.jsonl").read_text().splitlines()
+          if not chain or json.loads(chain[-1]).get("hash") != anchor["chain_root"]:
+              raise SystemExit("INDEPENDENT_CHAIN_TIP_FAIL")
+          print("INDEPENDENT_EVIDENCE_VERIFY: PASS")
+          PY
+          cp "$anchor" /tmp/cfr18-independent-mutated-anchor.json
+          printf '\n' >> /tmp/cfr18-independent-mutated-anchor.json
+          if cosign verify-blob /tmp/cfr18-independent-mutated-anchor.json \
+            --bundle "$bundle" \
+            --certificate-identity "$EXPECTED_IDENTITY" \
+            --certificate-oidc-issuer "$EXPECTED_ISSUER"; then
+            echo "INDEPENDENT_MUTATION_REJECTION: FAIL"
+            exit 1
+          fi
+          echo "INDEPENDENT_MUTATION_REJECTION: PASS"
