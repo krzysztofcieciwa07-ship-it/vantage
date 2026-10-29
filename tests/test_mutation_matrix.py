@@ -33,9 +33,9 @@ def test_source_mutation_matrix_preserves_high_risk_block():
 
 def test_decision_threshold_boundaries_are_fail_closed():
     gate = VantageGate()
-    assert gate.decide("verified_api", 0, 0) == Verdict.ALLOW
-    assert gate.decide("verified_api", 55, 55) == Verdict.HUMAN_APPROVAL
-    assert gate.decide("verified_api", 74, 74) == Verdict.BLOCK
+    assert gate.decide("user_upload", 0, 0) == Verdict.ALLOW
+    assert gate.decide("user_upload", 17, 17) == Verdict.HUMAN_APPROVAL
+    assert gate.decide("user_upload", 47, 47) == Verdict.BLOCK
 
 
 def test_task_type_mutation_does_not_bypass_gate():
@@ -67,3 +67,19 @@ def test_mutation_matrix_keeps_audit_chain_complete():
             "DECISION_GATE",
             "EXECUTION",
         ]
+
+def test_unknown_and_privileged_claims_fail_closed_for_benign_tasks():
+    for source in ("unknown_source", "", "verified_api", "known_partner"):
+        result = AFE().run(Task("Summarize this contract.", source, "compliance"))
+        assert result.verdict == Verdict.BLOCK
+        assert "EXECUTION: blocked" in result.audit
+
+
+def test_source_label_spoofing_does_not_reduce_risk():
+    gate = VantageGate()
+    # All accepted labels use the same conservative base risk.
+    for source in ("user_upload", "public_web", "anonymous_tool"):
+        assert gate.decide(source, 17, 17) == Verdict.HUMAN_APPROVAL
+    # Labels claiming privileged provenance without attestation are rejected.
+    assert gate.decide("verified_api", 0, 0) == Verdict.BLOCK
+    assert gate.decide("known_partner", 0, 0) == Verdict.BLOCK
