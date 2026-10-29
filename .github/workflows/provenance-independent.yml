@@ -31,16 +31,38 @@ jobs:
 
       - name: Verify artifact provenance independently
         env:
-          EXPECTED_IDENTITY: https://github.com/krzysztofcieciwa07-ship-it/vantage/.github/workflows/verify.yml@refs/heads/main
+          SOURCE_EVENT: ${{ github.event.workflow_run.event }}
+          SOURCE_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          SOURCE_WORKFLOW_PATH: ${{ github.event.workflow_run.path }}
+          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SOURCE_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          SOURCE_PR_HEAD_SHA: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
           EXPECTED_ISSUER: https://token.actions.githubusercontent.com
           EXPECTED_COMMIT: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
+          test "$SOURCE_REPOSITORY" = "$GITHUB_REPOSITORY"
+          test "$SOURCE_WORKFLOW_PATH" = ".github/workflows/verify.yml"
+          case "$SOURCE_EVENT" in
+            pull_request)
+              [[ "$SOURCE_PR_NUMBER" =~ ^[0-9]+$ ]]
+              test "$SOURCE_PR_HEAD_SHA" = "$EXPECTED_COMMIT"
+              expected_ref="refs/pull/${SOURCE_PR_NUMBER}/merge"
+              ;;
+            push|workflow_dispatch)
+              test "$SOURCE_BRANCH" = "main"
+              expected_ref="refs/heads/main"
+              ;;
+            *) echo "SOURCE_EVENT: unsupported" >&2; exit 1 ;;
+          esac
+          EXPECTED_IDENTITY="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/verify.yml@${expected_ref}"
           test -f provenance-bundle/provenance/anchor.json
           test -f provenance-bundle/provenance/anchor.sigstore.json
           test -f provenance-bundle/evidence/vantage-verification.txt
           test -f provenance-bundle/replay/replay-result.json
           grep -qx "commit=$EXPECTED_COMMIT" provenance-bundle/evidence/vantage-verification.txt
+          grep -qx "run_id=$SOURCE_RUN_ID" provenance-bundle/evidence/vantage-verification.txt
           cosign verify-blob provenance-bundle/provenance/anchor.json \
             --bundle provenance-bundle/provenance/anchor.sigstore.json \
             --certificate-identity "$EXPECTED_IDENTITY" \

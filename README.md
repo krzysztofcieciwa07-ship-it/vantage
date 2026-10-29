@@ -56,3 +56,17 @@ This status means the CI evidence chain passed for that exact revision. It does 
 ## Repository
 
 GitHub: https://github.com/krzysztofcieciwa07-ship-it/vantage
+
+## Security boundary (P0)
+
+Vantage is a **policy prototype**, not an execution sandbox or a payment
+authorization service. Its `ALLOW` verdict does not execute any side effects.
+No source label is an identity proof: only `user_upload`, `public_web`, and
+`anonymous_tool` are accepted as untrusted inputs at the same conservative
+base risk. Unknown labels and privileged labels such as `verified_api` and
+`known_partner` are blocked until a separate, independently verified source
+attestation boundary exists.
+
+Do not grant this component payment, transfer, bank, or production execution
+permissions until an authenticated action-bound authorization boundary,
+independent provenance verification, and real runtime tests have passed.
