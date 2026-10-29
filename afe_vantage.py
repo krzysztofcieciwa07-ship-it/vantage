@@ -49,13 +49,15 @@ SIGNATURES = [
 ]
 
 
-SOURCE_TRUST = {
-    "verified_api": 4,
-    "known_partner": 14,
-    "user_upload": 22,
-    "public_web": 38,
-    "anonymous_tool": 46,
-}
+# Source labels are caller-controlled text, not authenticated provenance.
+# No privileged source can receive a trust discount without an external attestor.
+# For this standalone prototype, accept known untrusted inputs at equal risk.
+ACCEPTED_UNTRUSTED_SOURCES = frozenset({
+    "user_upload",
+    "public_web",
+    "anonymous_tool",
+})
+UNTRUSTED_SOURCE_RISK = 46
 
 
 AGENTS = {
@@ -126,7 +128,11 @@ class VantageGate:
         return min(stress, 100)
 
     def decide(self, source: str, detector_score: int, incident_score: int) -> Verdict:
-        base = SOURCE_TRUST.get(source, 50)
+        # Unknown sources and unauthenticated claims such as "verified_api"
+        # or "known_partner" must fail closed.
+        if not isinstance(source, str) or source not in ACCEPTED_UNTRUSTED_SOURCES:
+            return Verdict.BLOCK
+        base = UNTRUSTED_SOURCE_RISK
         previous_blocks = self.memory.get(source, 0)
         memory_penalty = min(previous_blocks * 5, 20)
         risk = min(
@@ -175,7 +181,7 @@ class AFE:
         audit.append(f"DECISION_GATE: {verdict.value}")
 
         if verdict == Verdict.ALLOW:
-            audit.append("EXECUTION: permitted")
+            audit.append("EXECUTION: policy-eligible; no side effect executed")
         elif verdict == Verdict.HUMAN_APPROVAL:
             audit.append("EXECUTION: waiting for human approval")
         else:
