@@ -77,3 +77,14 @@ def test_independent_verifier_checkout_happens_before_evidence_download():
     )
     assert "persist-credentials: false" in workflow
     assert "ref: main" in workflow
+
+
+def test_cosign_v3_installer_is_pinned_and_shared_by_both_workflows():
+    """The install action must support v3.1.3 Sigstore bundles in both CI jobs."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / '.github' / 'workflows'
+    commit = 'b9c35392b7c1401bcc77d30c9b07cf4b1c7a7b07'
+    for path in ('verify.yml', 'provenance-independent.yml'):
+        text = (root / path).read_text(encoding='utf-8')
+        assert 'uses: sigstore/cosign-installer@' + commit in text
+        assert 'cosign-release: "v3.1.3"' in text
