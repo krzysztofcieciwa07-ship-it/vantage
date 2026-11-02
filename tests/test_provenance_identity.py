@@ -63,3 +63,17 @@ def test_untrusted_workflow_or_unsuccessful_run_fails_closed():
         data["workflow_run"].update(change)
         with pytest.raises(ValueError):
             resolve(data, REPO)
+
+
+def test_independent_verifier_checkout_happens_before_evidence_download():
+    """Checkout of main must not remove an already-downloaded evidence bundle."""
+    from pathlib import Path
+    workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows"
+                / "provenance-independent.yml").read_text(encoding="utf-8")
+    checkout = workflow.index("      - name: Checkout trusted verifier (default branch only)")
+    download = workflow.index("      - name: Download evidence artifact from completed run")
+    assert checkout < download, (
+        "checkout after artifact download can delete provenance-bundle before verification"
+    )
+    assert "persist-credentials: false" in workflow
+    assert "ref: main" in workflow
