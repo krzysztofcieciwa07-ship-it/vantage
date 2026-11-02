@@ -5,9 +5,11 @@
 ## Dowody bieżące i ich zakres
 
 - [Vantage Verify, 2026-10-29](https://github.com/krzysztofcieciwa07-ship-it/vantage/actions/runs/40968975127): `success` dla przebiegu na commicie PR `ffed66c8361a...`. Ten przebieg **nie oznacza**, że osobna weryfikacja podpisów się powiodła.
-- [Vantage Independent Provenance Verify, 2026-10-29](https://github.com/krzysztofcieciwa07-ship-it/vantage/actions/runs/40969041489): `failure`; nie wolno oznaczać aktualnego łańcucha niezależnego potwierdzania pochodzenia jako `VERIFIED`.
+- [Vantage Independent Provenance Verify, 2026-11-02](https://github.com/krzysztofcieciwa07-ship-it/vantage/actions/runs/41539129421): `failure` — **dokładny komunikat**: podpisany workflow ma SAN `verify.yml@refs/pull/10/merge`, a aktualny weryfikator z `main` oczekuje `verify.yml@refs/heads/main`. Nie oznacza to, że podpis jest niepoprawny; oznacza błąd oczekiwanego kontekstu podpisu i brak pozytywnego dowodu niezależnego sprawdzenia. [Proponowana poprawka PR #10](https://github.com/krzysztofcieciwa07-ship-it/vantage/pull/10) jest gotowa do przeglądu, lecz nie jest jeszcze scalona. [Starszy przebieg 2026-10-29](https://github.com/krzysztofcieciwa07-ship-it/vantage/actions/runs/40969041489) zakończył się analogicznym błędem.
 - [CFR-18, 2026-10-29](https://github.com/krzysztofcieciwa07-ship-it/vantage/actions/runs/40968949566): `failure` w najnowszym zaobserwowanym przebiegu.
 - W README podano historyczny zweryfikowany baseline `3063bcd9268315910e9db4f72a3de1f875019831`. Dotyczy **tylko tego SHA** i nie zastępuje weryfikacji późniejszych zmian.
+
+Dodatkowy problem: [CFR-18 #11](https://github.com/krzysztofcieciwa07-ship-it/vantage/issues/11) — automatyczne przebiegi zgłaszają `failure` przy **zerowej liczbie zadań**. Takiego uruchomienia nie wolno uznawać za przeprowadzony test scenariusza.
 
 ## Warunki zdjęcia blokady
 
