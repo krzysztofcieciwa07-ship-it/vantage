@@ -17,6 +17,7 @@ def event(kind="pull_request", prs=None, branch="feature/harden"):
             "head_sha": SHA,
             "head_branch": branch,
             "id": 40968975127,
+            "run_attempt": 1,
             "pull_requests": [{"number": 8}] if prs is None else prs,
         },
     }
@@ -88,3 +89,20 @@ def test_cosign_v3_installer_is_pinned_and_shared_by_both_workflows():
         text = (root / path).read_text(encoding='utf-8')
         assert 'uses: sigstore/cosign-installer@' + commit in text
         assert 'cosign-release: "v3.1.3"' in text
+
+
+def test_resolver_binds_exact_workflow_run_attempt():
+    v = event()
+    v["workflow_run"]["run_attempt"] = 2
+    assert resolve(v, REPO)["EXPECTED_RUN_ATTEMPT"] == "2"
+
+
+def test_resolver_rejects_missing_or_invalid_run_attempt():
+    for attempt in (None, 0, -1, "1", True):
+        v = event()
+        if attempt is None:
+            v["workflow_run"].pop("run_attempt")
+        else:
+            v["workflow_run"]["run_attempt"] = attempt
+        with pytest.raises(ValueError):
+            resolve(v, REPO)
