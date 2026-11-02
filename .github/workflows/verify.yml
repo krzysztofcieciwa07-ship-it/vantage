@@ -29,7 +29,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install test runner
-        run: python -m pip install --upgrade pytest
+        run: python -m pip install --upgrade pytest cryptography==46.0.4
 
       - name: Assert exact source SHA
         run: test "$(git rev-parse HEAD)" = "${EXPECTED_COMMIT}"
@@ -151,6 +151,15 @@ jobs:
             exit 1
           fi
           echo "SIGNATURE_MUTATION_GATE: PASS"
+
+      - name: Bind signing certificate to exact GitHub run and attempt
+        run: |
+          set -euo pipefail
+          python tools/verify_run_invocation.py \
+            --bundle provenance/anchor.sigstore.json \
+            --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT"
 
       - name: Upload verification evidence
         uses: actions/upload-artifact@v4
