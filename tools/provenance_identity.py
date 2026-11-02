@@ -36,6 +36,9 @@ def resolve(event, repository):
     run_id = run.get("id")
     if type(run_id) is not int or run_id < 1:
         raise ValueError("invalid source run ID")
+    run_attempt = run.get("run_attempt")
+    if type(run_attempt) is not int or run_attempt < 1:
+        raise ValueError("invalid source run attempt")
 
     event_type = run.get("event")
     if event_type == "pull_request":
@@ -60,6 +63,7 @@ def resolve(event, repository):
         "EXPECTED_IDENTITY": f"https://github.com/{repository}/{WORKFLOW_PATH}@{ref}",
         "EXPECTED_COMMIT": sha,
         "EXPECTED_RUN_ID": str(run_id),
+        "EXPECTED_RUN_ATTEMPT": str(run_attempt),
     }
 
 
