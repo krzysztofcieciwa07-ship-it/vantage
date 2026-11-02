@@ -1,5 +1,7 @@
 # Vantage
 
+> **Stan weryfikacji:** sprawdź [STATUS.md](STATUS.md) przed użyciem dowodów CI. Ostatni zweryfikowany przebieg niezależnego provenance (2026-10-29) zakończył się niepowodzeniem; historyczny baseline poniżej nie jest aktualnym potwierdzeniem pełnego łańcucha.
+
 Vantage is a deny-by-default execution gate prototype for routing tasks through detection, sandbox evaluation, incident stress, and a final decision gate.
 
 ## Pipeline
@@ -47,7 +49,7 @@ The current implementation is a prototype. Signature matching is heuristic and s
 
 ## Verification status
 
-Current verified baseline:
+Historical verified baseline (for the exact revision only):
 
 `3063bcd9268315910e9db4f72a3de1f875019831`
 
