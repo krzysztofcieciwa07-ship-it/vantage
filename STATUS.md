@@ -9,7 +9,7 @@
 - [CFR-18, 2026-10-29](https://github.com/krzysztofcieciwa07-ship-it/vantage/actions/runs/40968949566): `failure` w najnowszym zaobserwowanym przebiegu.
 - W README podano historyczny zweryfikowany baseline `3063bcd9268315910e9db4f72a3de1f875019831`. Dotyczy **tylko tego SHA** i nie zastępuje weryfikacji późniejszych zmian.
 
-Dodatkowy problem: [CFR-18 #11](https://github.com/krzysztofcieciwa07-ship-it/vantage/issues/11) — automatyczne przebiegi zgłaszają `failure` przy **zerowej liczbie zadań**. Takiego uruchomienia nie wolno uznawać za przeprowadzony test scenariusza.
+CFR-18: starsze przebiegi zgłaszały `failure` przy **zerowej liczbie zadań**. [PR #12](https://github.com/krzysztofcieciwa07-ship-it/vantage/pull/12) naprawia błąd składni wyrażenia GitHub; [przebieg 41539733803](https://github.com/krzysztofcieciwa07-ship-it/vantage/actions/runs/41539733803) zakończył się **success** z prawdziwymi testami, podpisem i negatywną próbą modyfikacji. **To wynik PR, nie potwierdzenie, że poprawka jest już na `main`.** [Issue #11](https://github.com/krzysztofcieciwa07-ship-it/vantage/issues/11) pozostaje otwarte do odbioru po scaleniu.
 
 ## Warunki zdjęcia blokady
 
