@@ -1,6 +1,6 @@
 # Vantage
 
-> **Stan weryfikacji:** sprawdź [STATUS.md](STATUS.md) przed użyciem dowodów CI. Ostatni zweryfikowany przebieg niezależnego provenance (2026-10-29) zakończył się niepowodzeniem; historyczny baseline poniżej nie jest aktualnym potwierdzeniem pełnego łańcucha.
+> **Stan weryfikacji:** sprawdź [STATUS.md](STATUS.md) przed użyciem dowodów CI. Najnowszy sprawdzony przebieg niezależnego provenance (2026-11-02) zakończył się niepowodzeniem z powodu niezgodności kontekstu podpisu PR/main; historyczny baseline poniżej nie jest aktualnym potwierdzeniem pełnego łańcucha.
 
 Vantage is a deny-by-default execution gate prototype for routing tasks through detection, sandbox evaluation, incident stress, and a final decision gate.
 
