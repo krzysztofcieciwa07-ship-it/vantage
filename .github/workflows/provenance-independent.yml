@@ -14,8 +14,14 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout trusted verifier (default branch only)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+
       - name: Download evidence artifact from completed run
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
@@ -25,15 +31,25 @@ jobs:
           path: provenance-bundle
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@main
+        uses: sigstore/cosign-installer@b9c35392b7c1401bcc77d30c9b07cf4b1c7a7b07 # reviewed 2026-10-13; Cosign v3.1.3-compatible
         with:
           cosign-release: "v3.1.3"
 
+      - name: Install pinned certificate parser
+        run: python -m pip install cryptography==46.0.4
+
+      - name: Resolve exact upstream signing identity
+        run: |
+          set -euo pipefail
+          # The workflow_run event is provided by GitHub. Do not execute code
+          # from the triggering PR or accept a wildcard certificate identity.
+          python tools/provenance_identity.py \
+            --event "$GITHUB_EVENT_PATH" \
+            --repository "$GITHUB_REPOSITORY" >> "$GITHUB_ENV"
+
       - name: Verify artifact provenance independently
         env:
-          EXPECTED_IDENTITY: https://github.com/krzysztofcieciwa07-ship-it/vantage/.github/workflows/verify.yml@refs/heads/main
           EXPECTED_ISSUER: https://token.actions.githubusercontent.com
-          EXPECTED_COMMIT: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           test -f provenance-bundle/provenance/anchor.json
@@ -41,10 +57,20 @@ jobs:
           test -f provenance-bundle/evidence/vantage-verification.txt
           test -f provenance-bundle/replay/replay-result.json
           grep -qx "commit=$EXPECTED_COMMIT" provenance-bundle/evidence/vantage-verification.txt
+          grep -qx "run_id=$EXPECTED_RUN_ID" provenance-bundle/evidence/vantage-verification.txt
+          grep -qx "workflow=Vantage Verify" provenance-bundle/evidence/vantage-verification.txt
           cosign verify-blob provenance-bundle/provenance/anchor.json \
             --bundle provenance-bundle/provenance/anchor.sigstore.json \
             --certificate-identity "$EXPECTED_IDENTITY" \
             --certificate-oidc-issuer "$EXPECTED_ISSUER"
+
+          # Only inspect the certificate AFTER Cosign has authenticated this
+          # exact signed blob and the Fulcio issuer/identity.
+          python tools/verify_run_invocation.py \
+            --bundle provenance-bundle/provenance/anchor.sigstore.json \
+            --repository "$GITHUB_REPOSITORY" \
+            --run-id "$EXPECTED_RUN_ID" \
+            --run-attempt "$EXPECTED_RUN_ATTEMPT"
 
           python - <<'PY'
           import hashlib, json, os
@@ -53,6 +79,11 @@ jobs:
           evidence=Path("provenance-bundle/evidence/vantage-verification.txt")
           replay=Path("provenance-bundle/replay/replay-result.json")
           assert anchor["commit"] == os.environ["EXPECTED_COMMIT"]
+          assert anchor["version"] == 1
+          signed = dict(anchor)
+          recorded_hash = signed.pop("record_hash")
+          material = json.dumps(signed, sort_keys=True, separators=(",", ":")).encode()
+          assert recorded_hash == hashlib.sha256(material).hexdigest()
           assert anchor["evidence_sha256"] == hashlib.sha256(evidence.read_bytes()).hexdigest()
           assert anchor["replay_sha256"] == hashlib.sha256(replay.read_bytes()).hexdigest()
           print("INDEPENDENT_PROVENANCE: PASS")
@@ -61,7 +92,7 @@ jobs:
           PY
 
       - name: Upload independent verification result
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: independent-provenance-${{ github.event.workflow_run.head_sha }}
           path: provenance-bundle/provenance
