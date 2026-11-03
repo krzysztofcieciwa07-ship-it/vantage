@@ -98,9 +98,11 @@ class DecisionAuthority:
             return 400, {"error": "invalid request size"}
         try:
             timestamp_text = headers.get("X-OLA-Timestamp", "")
-            timestamp = int(timestamp_text)
             nonce = headers.get("X-OLA-Nonce", "")
             signature = headers.get("X-OLA-Signature", "")
+            if not isinstance(timestamp_text, str) or not timestamp_text.isdigit():
+                return 401, {"error": "authentication rejected"}
+            timestamp = int(timestamp_text)
             if (not str(timestamp_text).isdigit() or not NONCE.fullmatch(nonce)
                     or not HEX_SHA256.fullmatch(signature)
                     or abs(now - timestamp) > SKEW_SECONDS):
