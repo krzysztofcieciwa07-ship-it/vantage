@@ -1,0 +1,15 @@
+.git
+.env
+.env.*
+__pycache__
+*.pyc
+tests
+cfr18
+evidence
+provenance
+replay
+pilot-secrets
+private*
+*.pem
+*.key
+*.sqlite*
