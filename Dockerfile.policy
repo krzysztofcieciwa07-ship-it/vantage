@@ -1,0 +1,10 @@
+# Piloting only; no production exposure without signed release review and TLS.
+FROM python:3.13-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /opt/vantage
+RUN python -m pip install --no-cache-dir cryptography==50.0.2
+COPY afe_vantage.py vantage_decision_api.py ./
+RUN useradd --uid 10010 --create-home vantage && mkdir /state && chown vantage:vantage /state
+USER 10010
+EXPOSE 18710
+CMD ["python", "vantage_decision_api.py"]
