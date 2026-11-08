@@ -6,14 +6,15 @@
 
 ## Intent
 
-Make the CFR-18 result prove the contract it claims: a health-stability window derived from the generated incident, an independently supplied participant classification, a complete and truthful list of required artifacts, and no points awarded for fabricated operator activity.
+Make the CFR-18 result prove the contract it claims: a health-stability window derived from the generated incident, an independently supplied participant classification, a complete and truthful list of required artifacts, honest metric names, and no points awarded for fabricated operator activity.
 
 ## Findings being corrected
 
-1. The run script always probes for 120 seconds although the incident manifest can require 100–140 seconds (seed 12345 requires 135 seconds). The scorer did not enforce the manifest's required window.
+1. The run script always probed for 120 seconds although the incident manifest can require 100–140 seconds (seed 12345 requires 135 seconds). The scorer did not enforce the manifest's required window.
 2. The harness created `self_report.json` from the same incident object later used to grade it. This made the answer self-fulfilling rather than an independent input.
 3. The harness wrote a fixed command list to `bash_history.txt`; the scorer interpreted it as investigation quality. This was not an observed operator trace.
 4. The incident generator still declared `self_report.json` and `bash_history.txt` as required evidence after those files were removed. That made the scenario's own evidence contract stale and inconsistent with the signed artifact.
+5. The score called post-recovery health probes `availability`, although those probes do not measure service availability across the fault and recovery interval. Runtime events also lack timestamps, so MTTR cannot be calculated.
 
 ## Chosen approach
 
@@ -25,16 +26,20 @@ Remove synthetic shell history and the investigation-quality points derived from
 
 Make `gen_incident.py` publish one canonical `required_evidence` list that names the actual final runtime artifacts. The assertions compare the generated list with the contract and verify that each listed file exists. External anchor and Sigstore files are governed separately by the manifest's external-anchor requirement.
 
+Call the health metric `probe_success_ratio` and document that it covers only the post-recovery stability window. Emit `mttr_status=NOT_CAPTURED` until runtime event timestamps and an explicit recovery-time definition are added.
+
 ## Non-goals
 
 - No merge, deployment, OLA production change, or change to the Vantage policy service.
 - No k3d migration, LLM-provider integration, or external network target.
 - No claim that the CI reference fixture represents a real human investigation.
+- No claim of whole-incident service availability or MTTR from the current evidence set.
 - No change to fault generation or Docker service topology.
 
 ## Verification
 
 - Unit tests reject a 120-sample/119-second probe against a 135-second requirement, accept a full-duration healthy window with probes no more than two seconds apart, and reject failed health samples or sparse intervals.
+- Unit tests verify that probe success ratio describes only the sampled probe set and returns zero for an empty set.
 - Unit tests reject missing/malformed participant submissions and distinguish correct from incorrect classifications.
 - Unit tests pin the incident's required evidence list to the final artifact contract.
 - GitHub Actions runs the Docker Compose forensic scenario, assertions, scoring, Evidence chain verification, Cosign signature verification, and signature-mutation rejection on the exact PR merge revision.
