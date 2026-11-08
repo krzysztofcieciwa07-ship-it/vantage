@@ -1,0 +1,1 @@
+Temporary CI trigger for strict float-boundary and reference-fixture scoring tests. Do not merge.
