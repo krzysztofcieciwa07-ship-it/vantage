@@ -1,0 +1,1 @@
+Temporary CI trigger for allowed participant sources and verified evidence-reference resolution. Do not merge.
