@@ -15,6 +15,21 @@ def read_jsonl(path):
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
+def probe_success_ratio(probes):
+    """Return the fraction of recorded health probes that succeeded.
+
+    This metric describes only the sampled probe set. It is not end-to-end
+    service availability, incident uptime, or a substitute for MTTR.
+    """
+    if not isinstance(probes, list) or not probes:
+        return 0.0
+    successful = sum(
+        isinstance(probe, dict) and probe.get("status") == "ok"
+        for probe in probes
+    )
+    return round(successful / len(probes), 4)
+
+
 def _parse_timestamp(value):
     if not isinstance(value, str) or not value.strip():
         return None
@@ -180,7 +195,7 @@ def score():
             f"({submission_check['reason']})"
         )
 
-    availability = sum(probe.get("status") == "ok" for probe in probes) / len(probes)
+    sampled_health_ratio = probe_success_ratio(probes)
     ids = [row.get("id") for row in processed]
     unique = set(ids)
     duplicates = max(0, len(ids) - len(unique))
@@ -188,10 +203,12 @@ def score():
     crashes = sum(event.get("event") == "crash" for event in events)
     fault_type_correct = submission_check["fault_type_correct"]
 
-    # Automated runtime-recovery score only. No operator-investigation points
-    # are awarded because CI does not capture an independent operator trace.
+    # Automated runtime-recovery score only. This ratio covers the post-recovery
+    # health probes, not service uptime across the whole incident. No MTTR is
+    # calculated because the runtime event log does not capture event timestamps.
+    # No operator-investigation points are awarded without an independent trace.
     base = (
-        0.20 * availability
+        0.20 * sampled_health_ratio
         + 0.25 * recovered
         + 0.20 * (1 - min(duplicates / 8, 1))
         + 0.10 * (1 if crashes else 0)
@@ -207,10 +224,12 @@ def score():
         "score": round(total, 4),
         "submission_source": submission.get("source", "unspecified"),
         "metrics": {
-            "availability": round(availability, 4),
+            "probe_success_ratio": sampled_health_ratio,
+            "probe_scope": "post_recovery_stability_window_only",
             "recovered_job_fraction": round(recovered, 4),
             "duplicate_records": duplicates,
             "crash_events": crashes,
+            "mttr_status": "NOT_CAPTURED",
             "probe_samples": window["sample_count"],
             "required_window_s": window["required_window_s"],
             "observed_window_s": window["observed_window_s"],
