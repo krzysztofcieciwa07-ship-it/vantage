@@ -26,7 +26,6 @@ python3 -m ci.evidence_vault session-start
 python3 -m ci.gen_incident --seed "$USER_SEED" >/tmp/cfr18-incident.json
 python3 - <<'PY'
 from pathlib import Path
-from . import __package__
 from ci.evidence_vault import append, file_sha256
 
 submission = Path("evidence/participant_submission.json")
