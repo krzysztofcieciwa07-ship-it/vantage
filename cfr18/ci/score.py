@@ -6,6 +6,7 @@ from .evidence_vault import verify_chain, verify_bound_files
 
 ROOT = Path(__file__).resolve().parents[1]
 EV = ROOT / "evidence"
+MAX_PROBE_GAP_S = 2.0
 
 
 def read_jsonl(path):
@@ -27,7 +28,7 @@ def _parse_timestamp(value):
 
 
 def evaluate_probe_window(probes, required_window_s):
-    """Check that healthy, ordered probes span the complete required interval."""
+    """Require a healthy full-duration window with no sampling gap over two seconds."""
     try:
         required = int(required_window_s)
     except (TypeError, ValueError):
@@ -56,23 +57,31 @@ def evaluate_probe_window(probes, required_window_s):
         current > previous
         for previous, current in zip(timestamps, timestamps[1:])
     )
+    gaps = [
+        (current - previous).total_seconds()
+        for previous, current in zip(timestamps, timestamps[1:])
+    ] if monotonic else []
+    max_gap_s = round(max(gaps), 3) if gaps else None
     observed_window_s = None
-    if timestamps_valid and monotonic and len(timestamps) >= 2:
-        observed_window_s = int((timestamps[-1] - timestamps[0]).total_seconds())
+    if monotonic and len(timestamps) >= 2:
+        observed_window_s = round((timestamps[-1] - timestamps[0]).total_seconds(), 3)
 
     passed = (
         required > 0
-        and sample_count >= required + 1
+        and sample_count >= 2
         and all_healthy
         and monotonic
         and observed_window_s is not None
         and observed_window_s >= required
+        and max_gap_s is not None
+        and max_gap_s <= MAX_PROBE_GAP_S
     )
     return {
         "passed": passed,
         "required_window_s": required,
         "observed_window_s": observed_window_s,
         "sample_count": sample_count,
+        "max_gap_s": max_gap_s,
         "all_healthy": all_healthy,
     }
 
@@ -159,6 +168,7 @@ def score():
             "SCORE BLOCKED: hidden stability window incomplete "
             f"(required={window['required_window_s']}s, "
             f"observed={window['observed_window_s']}s, "
+            f"max_gap={window['max_gap_s']}s, "
             f"samples={window['sample_count']}, "
             f"all_healthy={window['all_healthy']})"
         )
@@ -178,8 +188,8 @@ def score():
     crashes = sum(event.get("event") == "crash" for event in events)
     fault_type_correct = submission_check["fault_type_correct"]
 
-    # This is an automated runtime-recovery score. No operator-investigation
-    # points are awarded because CI does not capture an independent operator trace.
+    # Automated runtime-recovery score only. No operator-investigation points
+    # are awarded because CI does not capture an independent operator trace.
     base = (
         0.20 * availability
         + 0.25 * recovered
@@ -204,6 +214,7 @@ def score():
             "probe_samples": window["sample_count"],
             "required_window_s": window["required_window_s"],
             "observed_window_s": window["observed_window_s"],
+            "max_probe_gap_s": window["max_gap_s"],
             "health_window_passed": window["passed"],
             "participant_submission_valid": submission_check["valid"],
             "fault_type_correct": fault_type_correct,
