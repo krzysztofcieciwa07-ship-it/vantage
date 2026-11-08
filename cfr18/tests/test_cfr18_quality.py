@@ -14,10 +14,10 @@ def healthy_probes(count: int):
     ]
 
 
-def participant_submission(fault_type: str = "double_process"):
+def participant_submission(fault_type: str = "double_process", source: str = "test_fixture"):
     return {
         "schema": "CFR-18/participant-submission-v1",
-        "source": "test_fixture",
+        "source": source,
         "fault_type": fault_type,
         "root_cause": (
             "The worker crashed after dequeuing a job. Restart replayed work, "
@@ -34,6 +34,74 @@ def test_probe_success_ratio_reports_only_sampled_health_checks():
 
     assert score.probe_success_ratio(probes) == 0.75
     assert score.probe_success_ratio([]) == 0.0
+
+
+def test_probe_window_does_not_round_a_short_duration_up_to_the_threshold():
+    probes = healthy_probes(136)
+    start = datetime.fromisoformat(probes[0]["ts"])
+    duration = 134.9996
+    for index, probe in enumerate(probes):
+        probe["ts"] = (
+            start + timedelta(seconds=duration * index / 135)
+        ).isoformat()
+
+    result = score.evaluate_probe_window(probes, 135)
+
+    assert result["observed_window_s"] == 135.0
+    assert result["passed"] is False
+
+
+def test_probe_window_does_not_round_a_gap_over_two_seconds_down_to_two():
+    probes = healthy_probes(136)
+    start = datetime.fromisoformat(probes[0]["ts"])
+    total_duration = 135.0
+    special_gap = 2.0004
+    normal_gap = (total_duration - special_gap) / 134
+    elapsed = 0.0
+    for index, probe in enumerate(probes):
+        if index:
+            elapsed += special_gap if index == 50 else normal_gap
+        probe["ts"] = (start + timedelta(seconds=elapsed)).isoformat()
+
+    result = score.evaluate_probe_window(probes, 135)
+
+    assert result["max_gap_s"] == 2.0
+    assert result["passed"] is False
+
+
+def test_ci_reference_fixture_is_not_awarded_human_diagnosis_points():
+    submission = participant_submission(source="CI_REFERENCE_FIXTURE")
+    result = score.participant_scoring_adjustment(
+        submission, {"fault_type_correct": True}
+    )
+
+    assert result == {
+        "fault_type_correct": None,
+        "score_adjustment": 0.0,
+        "status": "REFERENCE_FIXTURE_NOT_GRADED",
+    }
+
+
+def test_human_participant_classification_is_scored_separately_from_ci_fixture():
+    correct = score.participant_scoring_adjustment(
+        participant_submission(source="participant"),
+        {"fault_type_correct": True},
+    )
+    incorrect = score.participant_scoring_adjustment(
+        participant_submission("silent_loss", source="participant"),
+        {"fault_type_correct": False},
+    )
+
+    assert correct == {
+        "fault_type_correct": True,
+        "score_adjustment": 0.03,
+        "status": "GRADED",
+    }
+    assert incorrect == {
+        "fault_type_correct": False,
+        "score_adjustment": -0.01,
+        "status": "GRADED",
+    }
 
 
 def test_probe_window_rejects_120_samples_for_a_135_second_requirement():
