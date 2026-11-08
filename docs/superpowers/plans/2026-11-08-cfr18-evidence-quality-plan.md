@@ -2,9 +2,9 @@
 
 > **For agentic workers:** Execute this plan task-by-task with the current GitHub branch as the isolated workspace. Steps use checkbox syntax for tracking.
 
-**Goal:** Make CFR-18 enforce the manifest-defined health-stability interval, grade a separately supplied participant submission, ensure the incident requires actual artifacts, and keep score calculations accurate at the exact threshold.
+**Goal:** Make CFR-18 enforce the manifest-defined health-stability interval, grade a separately supplied participant submission, ensure the incident requires actual artifacts, and verify participant evidence pointers against actual records.
 
-**Architecture:** Preserve the existing Compose scenario, append-only Evidence chain and Cosign anchor. Add pure scoring validators, make the run script consume the generated incident window and an external submission file, align the incident's required-evidence list, and report sampled health separately from end-to-end availability.
+**Architecture:** Preserve the existing Compose scenario, append-only Evidence chain and Cosign anchor. Add pure scoring validators, make the run script consume the generated incident window and an external submission file, align the incident's required-evidence list, and resolve every submitted evidence pointer within a small, declared JSONL allow-list.
 
 **Tech Stack:** Python 3.12, pytest, POSIX shell, Docker Compose, GitHub Actions, Cosign.
 
@@ -16,6 +16,8 @@
 - Run against the exact source SHA; keep the PR Draft.
 - Missing or invalid participant input and incomplete health windows fail closed.
 - CI's fixed-seed reference submission is explicitly a test fixture, not evidence of human performance; it receives no diagnosis bonus.
+- Only `participant` and `CI_REFERENCE_FIXTURE` are valid source labels; this is not identity authentication.
+- Evidence refs must resolve to real JSONL records in declared allow-listed runtime artifacts.
 - No fabricated shell history or investigator-quality points.
 - The incident's required runtime evidence list must match the final runtime artifacts exactly.
 - Post-recovery probe success must not be called whole-incident availability; MTTR stays NOT_CAPTURED without event timestamps.
@@ -32,6 +34,8 @@
 - The CI reference fixture must not receive a diagnosis bonus; participant-source submissions remain separately graded.
 - Missing timestamps, duplicate/non-monotonic timestamps, and malformed ISO-8601 values must fail.
 - Missing, malformed, empty, or wrong-schema participant reports must not receive a passing result.
+- Unknown source labels must not be graded as participants.
+- Evidence references with unknown paths, path traversal, nonexistent files, malformed selectors, or no matching JSONL record must fail.
 - A valid but incorrect fault classification must be graded incorrect rather than treated as missing.
 - The incident must not declare removed files as required evidence, and every required path must exist by assertion time.
 - Re-running the scenario must not overwrite a participant submission source file or include fake operator traces.
@@ -46,12 +50,14 @@
 
 **Interfaces:**
 - Consumes: existing `ci.score` module and deterministic timestamp/incident contracts.
-- Produces: tests requiring `evaluate_probe_window(probes, required_window_s)`, `validate_participant_submission(incident, submission)`, `probe_success_ratio(probes)`, `participant_scoring_adjustment(submission, submission_check)`, and `build_incident(seed, opened_at)`.
+- Produces: tests requiring `evaluate_probe_window(probes, required_window_s)`, `validate_participant_submission(incident, submission, evidence_root)`, `probe_success_ratio(probes)`, `participant_scoring_adjustment(submission, submission_check)`, `_evidence_reference_resolves(reference, incident, evidence_root)`, and `build_incident(seed, opened_at)`.
 
 - [ ] Test exact window boundaries and full-precision max-gap comparisons.
 - [ ] Test that CI fixture answers receive no diagnosis bonus and participant classifications are scored separately.
 - [ ] Test that probe success ratio reflects only the supplied health probes and returns zero for an empty set.
 - [ ] Test missing/malformed submissions and a separately supplied valid report with correct vs incorrect fault type.
+- [ ] Test source-label allow-list; unknown labels must not receive participant scoring.
+- [ ] Test successful evidence record resolution and failure for unknown paths, missing files, unsafe traversal, and unmatched selectors.
 - [ ] Test that `build_incident` declares exactly the actual runtime artifacts: chain, incident, manifest, probes, participant submission, score, runtime events, and processed jobs.
 - [ ] Run `pytest -q` in `cfr18` through the PR workflow and record expected RED failures before implementation.
 
@@ -65,11 +71,11 @@
 - Modify: `cfr18/ci/assertions.sh`
 - Modify: `.github/workflows/cfr18.yml`
 - Modify: `cfr18/README.md`
-- Create: `cfr18/tests/fixtures/participant_submission_seed_12345.json`
+- Modify: `cfr18/tests/fixtures/participant_submission_seed_12345.json`
 
 **Interfaces:**
 - Consumes: incident `hidden_required_window_s`; external file named by `CFR_PARTICIPANT_SUBMISSION`.
-- Produces: Evidence `participant_submission.json`; score schema `CFR-18/forensic-score-v3`; probe-window metrics `required_window_s`, `observed_window_s`, `max_gap_s`, `sample_count`, and `passed`; score metrics `probe_success_ratio`, `mttr_status=NOT_CAPTURED`, and `participant_classification_status`.
+- Produces: Evidence `participant_submission.json`; score schema `CFR-18/forensic-score-v3`; probe-window metrics `required_window_s`, `observed_window_s`, `max_gap_s`, `sample_count`, and `passed`; resolved participant evidence pointers.
 
 - [ ] Implement the failing unit contracts.
 - [ ] Make `live_forensic.sh` require and copy the participant report; remove generated `self_report.json` and template `bash_history.txt`.
@@ -78,6 +84,7 @@
 - [ ] Compare raw duration and gap values before rounding metrics for display.
 - [ ] Remove investigation-quality points derived from synthetic command text; report `operator_trace_status=NOT_CAPTURED`.
 - [ ] Give `CI_REFERENCE_FIXTURE` no participant diagnosis adjustment.
+- [ ] Allow only exact source labels and resolve every evidence ref against a declared allow-listed JSONL record.
 - [ ] Generate one canonical required-evidence list and assert that each declared runtime artifact exists; remove stale self-report/history entries.
 - [ ] Report post-recovery probe success separately; leave whole-incident availability and MTTR unmeasured until event timestamps are available.
 - [ ] Update Evidence snapshots, signed-anchor file list, artifact bundle and local run instructions.
