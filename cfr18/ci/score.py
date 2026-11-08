@@ -7,6 +7,7 @@ from .evidence_vault import verify_chain, verify_bound_files
 ROOT = Path(__file__).resolve().parents[1]
 EV = ROOT / "evidence"
 MAX_PROBE_GAP_S = 2.0
+CI_REFERENCE_SOURCE = "CI_REFERENCE_FIXTURE"
 
 
 def read_jsonl(path):
@@ -76,27 +77,32 @@ def evaluate_probe_window(probes, required_window_s):
         (current - previous).total_seconds()
         for previous, current in zip(timestamps, timestamps[1:])
     ] if monotonic else []
-    max_gap_s = round(max(gaps), 3) if gaps else None
-    observed_window_s = None
-    if monotonic and len(timestamps) >= 2:
-        observed_window_s = round((timestamps[-1] - timestamps[0]).total_seconds(), 3)
+    raw_max_gap_s = max(gaps) if gaps else None
+    raw_observed_window_s = (
+        (timestamps[-1] - timestamps[0]).total_seconds()
+        if monotonic and len(timestamps) >= 2
+        else None
+    )
 
+    # Compare full-precision values. Rounding is for display only and must
+    # never turn 134.9996s into a passing 135.000s window or 2.0004s into
+    # an acceptable 2.000s sample gap.
     passed = (
         required > 0
         and sample_count >= 2
         and all_healthy
         and monotonic
-        and observed_window_s is not None
-        and observed_window_s >= required
-        and max_gap_s is not None
-        and max_gap_s <= MAX_PROBE_GAP_S
+        and raw_observed_window_s is not None
+        and raw_observed_window_s >= required
+        and raw_max_gap_s is not None
+        and raw_max_gap_s <= MAX_PROBE_GAP_S
     )
     return {
         "passed": passed,
         "required_window_s": required,
-        "observed_window_s": observed_window_s,
+        "observed_window_s": round(raw_observed_window_s, 3) if raw_observed_window_s is not None else None,
         "sample_count": sample_count,
-        "max_gap_s": max_gap_s,
+        "max_gap_s": round(raw_max_gap_s, 3) if raw_max_gap_s is not None else None,
         "all_healthy": all_healthy,
     }
 
@@ -123,6 +129,7 @@ def validate_participant_submission(incident, submission):
             "reason": "invalid_submission_schema",
         }
 
+    source = submission.get("source")
     root_cause = submission.get("root_cause")
     evidence_refs = submission.get("evidence_refs")
     submitted_at = _parse_timestamp(submission.get("reported_at"))
@@ -130,7 +137,9 @@ def validate_participant_submission(incident, submission):
     expected_fault = (incident or {}).get("mutation", {}).get("variant")
 
     if (
-        not isinstance(root_cause, str)
+        not isinstance(source, str)
+        or not source.strip()
+        or not isinstance(root_cause, str)
         or len(root_cause.strip()) < 20
         or not isinstance(evidence_refs, list)
         or not evidence_refs
@@ -152,6 +161,23 @@ def validate_participant_submission(incident, submission):
         "valid": True,
         "fault_type_correct": correct,
         "reason": "ok" if correct else "fault_type_mismatch",
+    }
+
+
+def participant_scoring_adjustment(submission, submission_check):
+    """Do not grade or award diagnosis points to the deterministic CI fixture."""
+    if submission.get("source") == CI_REFERENCE_SOURCE:
+        return {
+            "fault_type_correct": None,
+            "score_adjustment": 0.0,
+            "status": "REFERENCE_FIXTURE_NOT_GRADED",
+        }
+
+    correct = bool(submission_check.get("fault_type_correct"))
+    return {
+        "fault_type_correct": correct,
+        "score_adjustment": 0.03 if correct else -0.01,
+        "status": "GRADED",
     }
 
 
@@ -195,13 +221,13 @@ def score():
             f"({submission_check['reason']})"
         )
 
+    classification = participant_scoring_adjustment(submission, submission_check)
     sampled_health_ratio = probe_success_ratio(probes)
     ids = [row.get("id") for row in processed]
     unique = set(ids)
     duplicates = max(0, len(ids) - len(unique))
     recovered = len(unique & set(range(1, 9))) / 8
     crashes = sum(event.get("event") == "crash" for event in events)
-    fault_type_correct = submission_check["fault_type_correct"]
 
     # Automated runtime-recovery score only. This ratio covers the post-recovery
     # health probes, not service uptime across the whole incident. No MTTR is
@@ -213,16 +239,13 @@ def score():
         + 0.20 * (1 - min(duplicates / 8, 1))
         + 0.10 * (1 if crashes else 0)
     )
-    total = max(
-        0,
-        min(1, base + 0.20 * (0.15 if fault_type_correct else -0.05)),
-    )
+    total = max(0, min(1, base + classification["score_adjustment"]))
     result = {
         "schema": "CFR-18/forensic-score-v3",
         "score_scope": "automated_runtime_recovery",
         "status": "MERIT" if total >= 0.75 else ("PASS" if total >= 0.60 else "FAIL"),
         "score": round(total, 4),
-        "submission_source": submission.get("source", "unspecified"),
+        "submission_source": submission.get("source"),
         "metrics": {
             "probe_success_ratio": sampled_health_ratio,
             "probe_scope": "post_recovery_stability_window_only",
@@ -236,7 +259,9 @@ def score():
             "max_probe_gap_s": window["max_gap_s"],
             "health_window_passed": window["passed"],
             "participant_submission_valid": submission_check["valid"],
-            "fault_type_correct": fault_type_correct,
+            "participant_classification_status": classification["status"],
+            "participant_score_adjustment": classification["score_adjustment"],
+            "fault_type_correct": classification["fault_type_correct"],
             "investigation_quality": None,
             "operator_trace_status": "NOT_CAPTURED",
         },
