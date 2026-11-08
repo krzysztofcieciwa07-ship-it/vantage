@@ -309,6 +309,19 @@ def test_participant_submission_rejects_unknown_source_label(tmp_path):
     assert result["reason"] == "invalid_submission_source"
 
 
+def test_participant_submission_rejects_non_string_source_label(tmp_path):
+    root = write_evidence(tmp_path)
+    submission = participant_submission()
+    submission["source"] = {"role": "participant"}
+
+    result = score.validate_participant_submission(
+        incident_fixture(), submission, evidence_root=root
+    )
+
+    assert result["valid"] is False
+    assert result["reason"] == "invalid_submission_source"
+
+
 def test_empty_root_cause_or_evidence_references_are_rejected(tmp_path):
     root = write_evidence(tmp_path)
     report = participant_submission()
