@@ -63,6 +63,7 @@ def main():
         "session_seed": args.seed,
         "incident_sha256": hashlib.sha256(incident_path.read_bytes()).hexdigest(),
         "created_at": now,
+        "external_anchor_required": True,
     }
     (evidence_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
