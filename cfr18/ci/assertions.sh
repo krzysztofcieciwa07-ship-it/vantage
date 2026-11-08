@@ -3,9 +3,6 @@ set -eu
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"; cd "$ROOT"
 python3 -m ci.evidence_vault verify
 python3 -m ci.evidence_vault verify-bound
-for f in evidence/incident.json evidence/manifest.json evidence/probe_results.jsonl evidence/participant_submission.json data/events.jsonl data/processed.jsonl; do
-  test -s "$f"
-done
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -30,6 +27,20 @@ events = [
     if line.strip()
 ]
 
+expected_evidence = [
+    "evidence/.chain.jsonl",
+    "evidence/incident.json",
+    "evidence/manifest.json",
+    "evidence/probe_results.jsonl",
+    "evidence/participant_submission.json",
+    "evidence/score_result.json",
+    "data/events.jsonl",
+    "data/processed.jsonl",
+]
+assert incident["required_evidence"] == expected_evidence
+for artifact in expected_evidence:
+    assert Path(artifact).is_file() and Path(artifact).stat().st_size > 0, artifact
+
 window = evaluate_probe_window(probes, incident["hidden_required_window_s"])
 assert window["passed"], f"hidden health-stability window failed: {window}"
 submission_check = validate_participant_submission(incident, submission)
@@ -38,6 +49,7 @@ assert len(probes) >= 101
 ids = [row["id"] for row in rows]
 assert set(ids) == set(range(1, 9)) and len(ids) == len(set(ids))
 assert any(event.get("event") == "crash" for event in events)
+assert not Path("evidence/self_report.json").exists()
 assert not Path("evidence/bash_history.txt").exists()
 print("ASSERTIONS_PASS")
 PY
