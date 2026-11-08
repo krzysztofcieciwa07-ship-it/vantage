@@ -8,6 +8,11 @@ ROOT = Path(__file__).resolve().parents[1]
 EV = ROOT / "evidence"
 MAX_PROBE_GAP_S = 2.0
 CI_REFERENCE_SOURCE = "CI_REFERENCE_FIXTURE"
+ALLOWED_SUBMISSION_SOURCES = {CI_REFERENCE_SOURCE, "participant"}
+ALLOWED_EVIDENCE_REFERENCE_FILES = {
+    "data/events.jsonl",
+    "data/processed.jsonl",
+}
 
 
 def read_jsonl(path):
@@ -107,8 +112,54 @@ def evaluate_probe_window(probes, required_window_s):
     }
 
 
-def validate_participant_submission(incident, submission):
-    """Validate a separate participant report; do not derive it from the incident."""
+def _evidence_reference_resolves(reference, incident, evidence_root):
+    """Resolve a field=value pointer to a real JSONL record in declared runtime evidence."""
+    if not isinstance(reference, str) or reference.count("#") != 1:
+        return False
+    relative_path, selector = reference.split("#", 1)
+    if relative_path not in ALLOWED_EVIDENCE_REFERENCE_FILES:
+        return False
+
+    declared = (incident or {}).get("required_evidence", [])
+    if not isinstance(declared, list) or relative_path not in declared:
+        return False
+
+    if selector.count("=") != 1:
+        return False
+    field, expected_value = selector.split("=", 1)
+    if not field or not expected_value:
+        return False
+
+    root = Path(evidence_root).resolve()
+    target = (root / relative_path).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError:
+        return False
+    if not target.is_file():
+        return False
+
+    try:
+        lines = target.read_text().splitlines()
+    except (OSError, UnicodeError):
+        return False
+
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            return False
+        if not isinstance(row, dict):
+            return False
+        if field in row and str(row[field]) == expected_value:
+            return True
+    return False
+
+
+def validate_participant_submission(incident, submission, evidence_root=ROOT):
+    """Validate a separate participant report and resolve every evidence pointer."""
     if submission is None:
         return {
             "valid": False,
@@ -130,6 +181,13 @@ def validate_participant_submission(incident, submission):
         }
 
     source = submission.get("source")
+    if source not in ALLOWED_SUBMISSION_SOURCES:
+        return {
+            "valid": False,
+            "fault_type_correct": False,
+            "reason": "invalid_submission_source",
+        }
+
     root_cause = submission.get("root_cause")
     evidence_refs = submission.get("evidence_refs")
     submitted_at = _parse_timestamp(submission.get("reported_at"))
@@ -137,13 +195,10 @@ def validate_participant_submission(incident, submission):
     expected_fault = (incident or {}).get("mutation", {}).get("variant")
 
     if (
-        not isinstance(source, str)
-        or not source.strip()
-        or not isinstance(root_cause, str)
+        not isinstance(root_cause, str)
         or len(root_cause.strip()) < 20
         or not isinstance(evidence_refs, list)
         or not evidence_refs
-        or any(not isinstance(ref, str) or not ref.strip() for ref in evidence_refs)
         or submitted_at is None
         or not isinstance(fault_type, str)
         or not fault_type.strip()
@@ -154,6 +209,16 @@ def validate_participant_submission(incident, submission):
             "valid": False,
             "fault_type_correct": False,
             "reason": "incomplete_submission",
+        }
+
+    if any(
+        not _evidence_reference_resolves(reference, incident, evidence_root)
+        for reference in evidence_refs
+    ):
+        return {
+            "valid": False,
+            "fault_type_correct": False,
+            "reason": "unresolved_evidence_reference",
         }
 
     correct = fault_type == expected_fault
@@ -171,6 +236,12 @@ def participant_scoring_adjustment(submission, submission_check):
             "fault_type_correct": None,
             "score_adjustment": 0.0,
             "status": "REFERENCE_FIXTURE_NOT_GRADED",
+        }
+    if submission.get("source") != "participant":
+        return {
+            "fault_type_correct": None,
+            "score_adjustment": 0.0,
+            "status": "UNKNOWN_SOURCE_NOT_GRADED",
         }
 
     correct = bool(submission_check.get("fault_type_correct"))
