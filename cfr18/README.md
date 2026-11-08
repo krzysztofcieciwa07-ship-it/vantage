@@ -31,12 +31,17 @@ The checked-in submission is a **CI reference fixture**, not a human performance
   "source": "participant",
   "fault_type": "double_process",
   "root_cause": "Describe the independently diagnosed cause and supporting signals.",
-  "evidence_refs": ["data/events.jsonl#crash"],
+  "evidence_refs": [
+    "data/events.jsonl#event=crash",
+    "data/processed.jsonl#id=8"
+  ],
   "reported_at": "2026-11-08T12:00:00+00:00"
 }
 ```
 
-Use the fault type that matches the observed incident; the example value above is not valid for every seed. The participant report is a declared input, not an authenticated identity proof.
+Only `participant` and `CI_REFERENCE_FIXTURE` are valid source labels. Each evidence reference must use `relative/path.jsonl#field=value`, point to one of the incident's declared JSONL evidence files, and match a real record. References outside the permitted runtime evidence paths, path traversal, missing files, and unmatched records are rejected. The participant report is still a declared input, not an authenticated identity proof.
+
+Use the fault type that matches the observed incident; the example value above is not valid for every seed.
 
 The generated `incident.json` declares the final required runtime evidence paths: the Evidence chain, incident, manifest, probe results, separate participant submission, score result, processed data, and runtime events. Assertions check that each declared path actually exists. The external anchor and Sigstore signature are governed separately by `external_anchor_required` in the evidence manifest.
 
