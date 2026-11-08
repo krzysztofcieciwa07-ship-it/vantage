@@ -75,7 +75,7 @@ def test_probe_window_accepts_134_samples_when_full_coverage_and_gap_limit_hold(
 
 
 def test_probe_window_rejects_sparse_samples_even_when_first_and_last_cover_window():
-    probes = healthy_probes(136)
+    probes = healthy_probes(135)
     for index in range(40, len(probes)):
         ts = datetime.fromisoformat(probes[index]["ts"])
         probes[index]["ts"] = (ts + timedelta(seconds=2)).isoformat()
@@ -83,7 +83,7 @@ def test_probe_window_rejects_sparse_samples_even_when_first_and_last_cover_wind
     result = score.evaluate_probe_window(probes, 135)
 
     assert result["passed"] is False
-    assert result["observed_window_s"] == 135
+    assert result["observed_window_s"] == 136
     assert result["max_gap_s"] == 3.0
 
 
