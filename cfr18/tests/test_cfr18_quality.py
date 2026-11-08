@@ -28,6 +28,14 @@ def participant_submission(fault_type: str = "double_process"):
     }
 
 
+def test_probe_success_ratio_reports_only_sampled_health_checks():
+    probes = healthy_probes(4)
+    probes[1]["status"] = "fail"
+
+    assert score.probe_success_ratio(probes) == 0.75
+    assert score.probe_success_ratio([]) == 0.0
+
+
 def test_probe_window_rejects_120_samples_for_a_135_second_requirement():
     result = score.evaluate_probe_window(healthy_probes(120), 135)
 
