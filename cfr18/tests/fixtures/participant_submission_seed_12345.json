@@ -1,0 +1,11 @@
+{
+  "schema": "CFR-18/participant-submission-v1",
+  "source": "CI_REFERENCE_FIXTURE",
+  "fault_type": "double_process",
+  "root_cause": "The worker crashed after dequeuing a job. Restart replayed work, so processing must be idempotent by job identifier.",
+  "evidence_refs": [
+    "data/events.jsonl#event=crash",
+    "data/processed.jsonl#job-id-deduplication"
+  ],
+  "reported_at": "2026-11-03T02:30:00+00:00"
+}
