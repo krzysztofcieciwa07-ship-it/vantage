@@ -1,6 +1,19 @@
 from datetime import datetime, timedelta, timezone
+import json
 
 from ci import score
+
+
+REQUIRED_EVIDENCE = [
+    "evidence/.chain.jsonl",
+    "evidence/incident.json",
+    "evidence/manifest.json",
+    "evidence/probe_results.jsonl",
+    "evidence/participant_submission.json",
+    "evidence/score_result.json",
+    "data/events.jsonl",
+    "data/processed.jsonl",
+]
 
 
 def healthy_probes(count: int):
@@ -14,7 +27,7 @@ def healthy_probes(count: int):
     ]
 
 
-def participant_submission(fault_type: str = "double_process", source: str = "test_fixture"):
+def participant_submission(fault_type: str = "double_process", source: str = "participant"):
     return {
         "schema": "CFR-18/participant-submission-v1",
         "source": source,
@@ -23,9 +36,31 @@ def participant_submission(fault_type: str = "double_process", source: str = "te
             "The worker crashed after dequeuing a job. Restart replayed work, "
             "so processing must be idempotent by job identifier."
         ),
-        "evidence_refs": ["data/events.jsonl#crash", "data/processed.jsonl#job-id"],
+        "evidence_refs": [
+            "data/events.jsonl#event=crash",
+            "data/processed.jsonl#id=8",
+        ],
         "reported_at": "2026-11-03T02:30:00+00:00",
     }
+
+
+def incident_fixture():
+    return {
+        "mutation": {"variant": "double_process"},
+        "required_evidence": REQUIRED_EVIDENCE,
+    }
+
+
+def write_evidence(root):
+    data = root / "data"
+    data.mkdir(parents=True, exist_ok=True)
+    (data / "events.jsonl").write_text(
+        json.dumps({"event": "crash", "id": 4}) + "\n"
+    )
+    (data / "processed.jsonl").write_text(
+        json.dumps({"id": 8, "status": "done"}) + "\n"
+    )
+    return root
 
 
 def test_probe_success_ratio_reports_only_sampled_health_checks():
@@ -187,9 +222,7 @@ def test_probe_window_fails_when_timestamps_are_missing_or_not_monotonic():
 
 
 def test_participant_submission_must_be_a_separate_structured_input():
-    incident = {"mutation": {"variant": "double_process"}}
-
-    result = score.validate_participant_submission(incident, None)
+    result = score.validate_participant_submission(incident_fixture(), None)
 
     assert result == {
         "valid": False,
@@ -198,14 +231,13 @@ def test_participant_submission_must_be_a_separate_structured_input():
     }
 
 
-def test_participant_submission_is_compared_with_incident_not_generated_from_it():
-    incident = {"mutation": {"variant": "double_process"}}
-
+def test_participant_submission_is_compared_with_incident_not_generated_from_it(tmp_path):
+    root = write_evidence(tmp_path)
     correct = score.validate_participant_submission(
-        incident, participant_submission("double_process")
+        incident_fixture(), participant_submission("double_process"), evidence_root=root
     )
     incorrect = score.validate_participant_submission(
-        incident, participant_submission("silent_loss")
+        incident_fixture(), participant_submission("silent_loss"), evidence_root=root
     )
 
     assert correct == {
@@ -220,13 +252,72 @@ def test_participant_submission_is_compared_with_incident_not_generated_from_it(
     }
 
 
-def test_empty_root_cause_or_evidence_references_are_rejected():
-    incident = {"mutation": {"variant": "double_process"}}
+def test_participant_submission_references_must_resolve_to_real_records(tmp_path):
+    root = write_evidence(tmp_path)
+    submission = participant_submission()
+    submission["evidence_refs"] = ["data/events.jsonl#event=missing"]
+
+    result = score.validate_participant_submission(
+        incident_fixture(), submission, evidence_root=root
+    )
+
+    assert result == {
+        "valid": False,
+        "fault_type_correct": False,
+        "reason": "unresolved_evidence_reference",
+    }
+
+
+def test_participant_submission_rejects_missing_evidence_file(tmp_path):
+    root = tmp_path
+    (root / "data").mkdir()
+    (root / "data" / "events.jsonl").write_text(
+        json.dumps({"event": "crash"}) + "\n"
+    )
+    submission = participant_submission()
+
+    result = score.validate_participant_submission(
+        incident_fixture(), submission, evidence_root=root
+    )
+
+    assert result["valid"] is False
+    assert result["reason"] == "unresolved_evidence_reference"
+
+
+def test_participant_submission_rejects_path_traversal_in_evidence_reference(tmp_path):
+    root = write_evidence(tmp_path)
+    submission = participant_submission()
+    submission["evidence_refs"] = ["../outside.jsonl#event=crash"]
+
+    result = score.validate_participant_submission(
+        incident_fixture(), submission, evidence_root=root
+    )
+
+    assert result["valid"] is False
+    assert result["reason"] == "unresolved_evidence_reference"
+
+
+def test_participant_submission_rejects_unknown_source_label(tmp_path):
+    root = write_evidence(tmp_path)
+    submission = participant_submission(source="automation_claiming_human")
+
+    result = score.validate_participant_submission(
+        incident_fixture(), submission, evidence_root=root
+    )
+
+    assert result["valid"] is False
+    assert result["reason"] == "invalid_submission_source"
+
+
+def test_empty_root_cause_or_evidence_references_are_rejected(tmp_path):
+    root = write_evidence(tmp_path)
     report = participant_submission()
     report["root_cause"] = ""
     report["evidence_refs"] = []
 
-    result = score.validate_participant_submission(incident, report)
+    result = score.validate_participant_submission(
+        incident_fixture(), report, evidence_root=root
+    )
 
     assert result["valid"] is False
     assert result["reason"] == "incomplete_submission"
