@@ -181,7 +181,7 @@ def validate_participant_submission(incident, submission, evidence_root=ROOT):
         }
 
     source = submission.get("source")
-    if source not in ALLOWED_SUBMISSION_SOURCES:
+    if not isinstance(source, str) or source not in ALLOWED_SUBMISSION_SOURCES:
         return {
             "valid": False,
             "fault_type_correct": False,
