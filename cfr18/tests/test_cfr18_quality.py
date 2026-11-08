@@ -36,6 +36,7 @@ def test_probe_window_rejects_120_samples_for_a_135_second_requirement():
         "required_window_s": 135,
         "observed_window_s": 119,
         "sample_count": 120,
+        "max_gap_s": 1.0,
         "all_healthy": True,
     }
 
@@ -48,8 +49,42 @@ def test_probe_window_passes_only_after_full_required_duration():
         "required_window_s": 135,
         "observed_window_s": 135,
         "sample_count": 136,
+        "max_gap_s": 1.0,
         "all_healthy": True,
     }
+
+
+def test_probe_window_accepts_134_samples_when_full_coverage_and_gap_limit_hold():
+    probes = healthy_probes(134)
+    start = datetime.fromisoformat(probes[0]["ts"])
+    elapsed = 0
+    for index in range(1, len(probes)):
+        elapsed += 2 if index in (40, 90) else 1
+        probes[index]["ts"] = (start + timedelta(seconds=elapsed)).isoformat()
+
+    result = score.evaluate_probe_window(probes, 135)
+
+    assert result == {
+        "passed": True,
+        "required_window_s": 135,
+        "observed_window_s": 135,
+        "sample_count": 134,
+        "max_gap_s": 2.0,
+        "all_healthy": True,
+    }
+
+
+def test_probe_window_rejects_sparse_samples_even_when_first_and_last_cover_window():
+    probes = healthy_probes(136)
+    for index in range(40, len(probes)):
+        ts = datetime.fromisoformat(probes[index]["ts"])
+        probes[index]["ts"] = (ts + timedelta(seconds=2)).isoformat()
+
+    result = score.evaluate_probe_window(probes, 135)
+
+    assert result["passed"] is False
+    assert result["observed_window_s"] == 135
+    assert result["max_gap_s"] == 3.0
 
 
 def test_probe_window_fails_when_a_health_sample_fails():
