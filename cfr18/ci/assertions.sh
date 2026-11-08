@@ -10,6 +10,7 @@ from pathlib import Path
 from ci.score import evaluate_probe_window, validate_participant_submission
 
 incident = json.loads(Path("evidence/incident.json").read_text())
+manifest = json.loads(Path("evidence/manifest.json").read_text())
 submission = json.loads(Path("evidence/participant_submission.json").read_text())
 probes = [
     json.loads(line)
@@ -40,6 +41,7 @@ expected_evidence = [
 assert incident["required_evidence"] == expected_evidence
 for artifact in expected_evidence:
     assert Path(artifact).is_file() and Path(artifact).stat().st_size > 0, artifact
+assert manifest.get("external_anchor_required") is True
 
 window = evaluate_probe_window(probes, incident["hidden_required_window_s"])
 assert window["passed"], f"hidden health-stability window failed: {window}"
