@@ -46,6 +46,8 @@ jobs:
         run: docker compose config
 
       - name: Live forensic scenario
+        env:
+          CFR_PARTICIPANT_SUBMISSION: tests/fixtures/participant_submission_seed_12345.json
         run: sh scripts/live_forensic.sh
 
       - name: Assert runtime evidence
@@ -77,7 +79,7 @@ jobs:
               Path("evidence/incident.json"),
               Path("evidence/manifest.json"),
               Path("evidence/probe_results.jsonl"),
-              Path("evidence/self_report.json"),
+              Path("evidence/participant_submission.json"),
               Path("evidence/score_result.json"),
               Path("data/events.jsonl"),
               Path("data/processed.jsonl"),
@@ -144,8 +146,7 @@ jobs:
             cfr18/evidence/incident.json
             cfr18/evidence/manifest.json
             cfr18/evidence/probe_results.jsonl
-            cfr18/evidence/self_report.json
-            cfr18/evidence/bash_history.txt
+            cfr18/evidence/participant_submission.json
             cfr18/evidence/score_result.json
             cfr18/data/events.jsonl
             cfr18/data/processed.jsonl
