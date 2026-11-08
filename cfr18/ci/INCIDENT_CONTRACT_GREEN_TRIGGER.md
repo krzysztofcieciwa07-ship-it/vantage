@@ -1,0 +1,1 @@
+Temporary CI trigger for the implemented incident evidence contract. Do not merge.
