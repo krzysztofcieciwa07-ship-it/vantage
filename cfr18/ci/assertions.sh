@@ -43,8 +43,8 @@ for artifact in expected_evidence:
     assert Path(artifact).is_file() and Path(artifact).stat().st_size > 0, artifact
 assert manifest.get("external_anchor_required") is True
 
-window = evaluate_probe_window(probes, incident["hidden_required_window_s"])
-assert window["passed"], f"hidden health-stability window failed: {window}"
+window = evaluate_probe_window(probes, incident["required_stability_window_s"])
+assert window["passed"], f"required health-stability window failed: {window}"
 submission_check = validate_participant_submission(incident, submission)
 assert submission_check["valid"], f"participant submission invalid: {submission_check}"
 assert len(probes) >= 101
