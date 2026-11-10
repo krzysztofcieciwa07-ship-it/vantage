@@ -40,7 +40,7 @@ def build_incident(seed: int, opened_at: str) -> dict:
         "opened_at": opened_at,
         "seed": seed,
         "mutation": mutation_spec,
-        "hidden_required_window_s": required_window(seed),
+        "required_stability_window_s": required_window(seed),
         "required_evidence": list(REQUIRED_EVIDENCE),
     }
 
