@@ -273,11 +273,11 @@ def score():
 
     incident = json.loads(incident_path.read_text())
     submission = json.loads(submission_path.read_text())
-    required_window_s = incident.get("hidden_required_window_s")
+    required_window_s = incident.get("required_stability_window_s")
     window = evaluate_probe_window(probes, required_window_s)
     if not window["passed"]:
         raise SystemExit(
-            "SCORE BLOCKED: hidden stability window incomplete "
+            "SCORE BLOCKED: required stability window incomplete "
             f"(required={window['required_window_s']}s, "
             f"observed={window['observed_window_s']}s, "
             f"max_gap={window['max_gap_s']}s, "
