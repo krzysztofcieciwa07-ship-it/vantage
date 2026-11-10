@@ -45,7 +45,7 @@ Use the fault type that matches the observed incident; the example value above i
 
 The generated `incident.json` declares the final required runtime evidence paths: the Evidence chain, incident, manifest, probe results, separate participant submission, score result, processed data, and runtime events. Assertions check that each declared path actually exists. The external anchor and Sigstore signature are governed separately by `external_anchor_required` in the evidence manifest.
 
-The hidden health-stability duration is read from `incident.json`. The probe runner records sub-second timestamps through that duration, and assertions plus scoring compare full-precision timestamps (rounding is display-only). They reject a short or unhealthy window, non-monotonic samples, or a gap longer than two seconds.
+The scenario-specific required health-stability duration is read from `incident.json`. The probe runner records sub-second timestamps through that duration, and assertions plus scoring compare full-precision timestamps (rounding is display-only). They reject a short or unhealthy window, non-monotonic samples, or a gap longer than two seconds.
 
 The score reports `probe_success_ratio`: the fraction of health probes that succeeded **inside the post-recovery stability window**. This is not end-to-end service availability or incident uptime. MTTR is marked `NOT_CAPTURED` because runtime events currently have no timestamps. Operator investigation is also not scored because CI does not capture an independent signed operator trace. The CI reference fixture is not awarded diagnosis points; a participant classification is separately graded only for a submission marked `source=participant`.
 
