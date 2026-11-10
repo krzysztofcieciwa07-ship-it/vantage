@@ -65,7 +65,7 @@ import json
 from pathlib import Path
 
 incident = json.loads(Path("evidence/incident.json").read_text())
-print(int(incident["hidden_required_window_s"]))
+print(int(incident["required_stability_window_s"]))
 PY
 )
 DURATION="$DURATION" sh scripts/probe.sh
