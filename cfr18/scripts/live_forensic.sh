@@ -38,7 +38,27 @@ PY
 docker compose down -v --remove-orphans >/dev/null 2>&1 || true
 docker compose up -d --build
 trap 'docker compose down -v --remove-orphans >/dev/null 2>&1 || true; rm -f "$SUBMISSION_TMP"' EXIT
-until curl -fsS http://localhost:8098/health >/dev/null; do sleep 1; done
+
+READY_TIMEOUT_SECONDS=$(printenv READY_TIMEOUT_SECONDS 2>/dev/null || true)
+if [ -z "$READY_TIMEOUT_SECONDS" ]; then READY_TIMEOUT_SECONDS=90; fi
+case "$READY_TIMEOUT_SECONDS" in
+  ''|*[!0-9]*|0)
+    echo "BLOCK: READY_TIMEOUT_SECONDS must be a positive integer" >&2
+    exit 2
+    ;;
+esac
+
+READY_STARTED=$(date +%s)
+until curl --max-time 2 -fsS http://localhost:8098/health >/dev/null; do
+  READY_ELAPSED=$(( $(date +%s) - READY_STARTED ))
+  if [ "$READY_ELAPSED" -ge "$READY_TIMEOUT_SECONDS" ]; then
+    echo "BLOCK: worker API health readiness timed out after ${READY_TIMEOUT_SECONDS}s" >&2
+    docker compose ps --all >&2 || true
+    docker compose logs --no-color --tail=100 >&2 || true
+    exit 1
+  fi
+  sleep 1
+done
 for i in $(seq 1 8); do
   curl -fsS -X POST http://localhost:8098/enqueue -H 'content-type: application/json' -d "{\"id\":$i}" >/dev/null
 done
