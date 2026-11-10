@@ -74,7 +74,7 @@
 - Modify: `cfr18/tests/fixtures/participant_submission_seed_12345.json`
 
 **Interfaces:**
-- Consumes: incident `hidden_required_window_s`; external file named by `CFR_PARTICIPANT_SUBMISSION`.
+- Consumes: incident `required_stability_window_s`; external file named by `CFR_PARTICIPANT_SUBMISSION`.
 - Produces: Evidence `participant_submission.json`; score schema `CFR-18/forensic-score-v3`; probe-window metrics `required_window_s`, `observed_window_s`, `max_gap_s`, `sample_count`, and `passed`; resolved participant evidence pointers.
 
 - [ ] Implement the failing unit contracts.
