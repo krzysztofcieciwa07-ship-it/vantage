@@ -46,6 +46,8 @@ jobs:
         run: docker compose config
 
       - name: Live forensic scenario
+        env:
+          CFR_PARTICIPANT_SUBMISSION: tests/fixtures/participant_submission_seed_12345.json
         run: sh scripts/live_forensic.sh
 
       - name: Assert runtime evidence
@@ -71,13 +73,12 @@ jobs:
           import hashlib, json, os
           from pathlib import Path
 
-          root = Path(".")
           files = [
               Path("evidence/.chain.jsonl"),
               Path("evidence/incident.json"),
               Path("evidence/manifest.json"),
               Path("evidence/probe_results.jsonl"),
-              Path("evidence/self_report.json"),
+              Path("evidence/participant_submission.json"),
               Path("evidence/score_result.json"),
               Path("data/events.jsonl"),
               Path("data/processed.jsonl"),
@@ -98,6 +99,8 @@ jobs:
               "schema": "CFR-18/external-evidence-anchor-v1",
               "repository": os.environ["GITHUB_REPOSITORY"],
               "commit": os.environ["GITHUB_SHA"],
+              "source_head_sha": os.environ.get("SOURCE_HEAD_SHA") or os.environ["GITHUB_SHA"],
+              "base_sha": os.environ.get("BASE_SHA") or None,
               "run_id": os.environ["GITHUB_RUN_ID"],
               "workflow": os.environ["GITHUB_WORKFLOW"],
               "ref": os.environ["GITHUB_REF"],
@@ -114,7 +117,7 @@ jobs:
       - name: Keyless sign external evidence anchor
         run: |
           set -euo pipefail
-          cosign sign-blob provenance/anchor.json             --bundle provenance/anchor.sigstore.json             --yes
+          cosign sign-blob provenance/anchor.json --bundle provenance/anchor.sigstore.json --yes
 
       - name: Independently verify signature and mutation rejection
         env:
@@ -126,7 +129,7 @@ jobs:
 
           cp provenance/anchor.json /tmp/anchor-mutated.json
           printf '\n' >> /tmp/anchor-mutated.json
-          if cosign verify-blob /tmp/anchor-mutated.json               --bundle provenance/anchor.sigstore.json               --certificate-identity "$EXPECTED_IDENTITY"               --certificate-oidc-issuer "$EXPECTED_ISSUER"; then
+          if cosign verify-blob /tmp/anchor-mutated.json             --bundle provenance/anchor.sigstore.json             --certificate-identity "$EXPECTED_IDENTITY"             --certificate-oidc-issuer "$EXPECTED_ISSUER"; then
             echo "SIGNATURE_MUTATION_GATE: FAIL"
             exit 1
           fi
@@ -144,8 +147,7 @@ jobs:
             cfr18/evidence/incident.json
             cfr18/evidence/manifest.json
             cfr18/evidence/probe_results.jsonl
-            cfr18/evidence/self_report.json
-            cfr18/evidence/bash_history.txt
+            cfr18/evidence/participant_submission.json
             cfr18/evidence/score_result.json
             cfr18/data/events.jsonl
             cfr18/data/processed.jsonl
