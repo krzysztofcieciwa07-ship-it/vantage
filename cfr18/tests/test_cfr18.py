@@ -18,6 +18,8 @@ def test_mutation_deterministic():
 def test_generated_incident_declares_the_actual_evidence_contract():
     incident = build_incident(12345, "2026-11-08T22:29:22.661304+00:00")
 
+    assert 100 <= incident["required_stability_window_s"] <= 140
+    assert "hidden_required_window_s" not in incident
     assert incident["required_evidence"] == [
         "evidence/.chain.jsonl",
         "evidence/incident.json",
