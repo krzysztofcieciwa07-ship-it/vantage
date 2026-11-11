@@ -7,9 +7,6 @@ on:
       - '.github/workflows/cfr18.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'cfr18/**'
-      - '.github/workflows/cfr18.yml'
   workflow_dispatch:
 
 permissions:
