@@ -1,0 +1,30 @@
+name: Feature request
+description: Propose a testable improvement to Vantage.
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired behavior
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Security and compatibility constraints
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Define objectively testable outcomes.
+    validations:
+      required: true

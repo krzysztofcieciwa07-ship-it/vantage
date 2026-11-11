@@ -44,7 +44,13 @@ A workflow file existing is not a passing workflow. For any verification claim, 
 
 ## Running the prototype
 
-The root currently has no `requirements.txt` or `pyproject.toml`. The core AFE/LLM demo uses the Python standard library; tests and CFR-18 have their own test/runtime requirements.
+The core AFE/LLM demo uses the Python standard library. Pinned root test tooling is declared in requirements-dev.txt; CFR-18 retains its own test and runtime dependencies.
+
+Install the root development requirements before running the test suite:
+
+~~~bash
+python -m pip install -r requirements-dev.txt
+~~~
 
 Run from the repository root:
 
@@ -84,3 +90,12 @@ The repository contains executable Python code, tests, CI definitions, and a CFR
 ## Repository
 
 https://github.com/krzysztofcieciwa07-ship-it/vantage
+
+
+## License status
+
+No LICENSE file is currently present. The repository is visible on GitHub, but visibility does not grant a license to copy, modify, or redistribute the code. Choose and add an explicit license before describing this project as open source or granting external reuse rights.
+
+## Repository governance
+
+Engineering rules and contribution steps are maintained in docs/ENGINEERING_STANDARD.md and CONTRIBUTING.md. Security reporting guidance is in SECURITY.md. Use .github/PULL_REQUEST_TEMPLATE.md for source-SHA-bound verification records. Dependabot checks Python and GitHub Actions dependencies.
