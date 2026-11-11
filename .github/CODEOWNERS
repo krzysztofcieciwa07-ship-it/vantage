@@ -1,0 +1,6 @@
+# Default review ownership for the Vantage prototype and CFR-18 exercise.
+* @krzysztofcieciwa07-ship-it
+/.github/ @krzysztofcieciwa07-ship-it
+/tools/ @krzysztofcieciwa07-ship-it
+/tests/ @krzysztofcieciwa07-ship-it
+/cfr18/ @krzysztofcieciwa07-ship-it
